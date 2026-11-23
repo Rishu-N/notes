@@ -1624,6 +1624,21 @@ async function syncNow() {
   }
 }
 
+// Is there a Dump sync server at `base`? (New servers answer /v1/health; older standalone ones answer /.)
+async function probeSync(base) {
+  for (const path of ['/v1/health', '/']) {
+    try {
+      const r = await fetch(base + path, { cache: 'no-store' });
+      const j = await r.json();
+      if (j && j.app === 'dump-sync') return true;
+    } catch {}
+  }
+  return false;
+}
+// The app's own address usually hosts sync too, so devices only need the passphrase.
+let builtInSync = false;
+const ownOrigin = () => location.origin.replace(/\/+$/, '');
+
 function isPristine() {
   const mine = S.lines.map(exportLine).filter(t => t.trim()).join('\n');
   const fresh = starter().map(exportLine).filter(t => t.trim()).join('\n');
@@ -1635,9 +1650,7 @@ async function connectSync(url, pass) {
   if (!/^https:\/\//i.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)/i.test(url)) throw new Error('The sync address should start with https://');
   if (pass.length < 8) throw new Error('Use a passphrase of at least 8 characters (4 random words is great)');
   if (!cryptoOK()) throw new Error('Open the app from its https:// address to use sync');
-  let health;
-  try { health = await (await fetch(url + '/', { cache: 'no-store' })).json(); } catch { health = null; }
-  if (!health || health.app !== 'dump-sync') throw new Error('No Dump sync server at that address. Check the URL.');
+  if (!(await probeSync(url))) throw new Error('No Dump sync server at that address. Check the URL.');
   const secrets = await deriveSecrets(pass);
   const cfg = { url, id: secrets.id, key: secrets.key, rev: 0, base: null, last: 0, err: null };
   const prev = SY, prevKey = syncKey;
@@ -1697,11 +1710,14 @@ function renderSyncSheet(msg) {
       '<div class="sbtns"><button class="primary" id="snow">Sync now</button><button class="danger" id="soff">Turn off</button></div>' +
       '<p class="note">To add another phone or laptop, open Dump there, tap the cloud and enter the same server address and passphrase. Turning sync off keeps your notes on this device.</p>';
   } else {
+    const urlField = '<label class="field"><span>Sync server address</span><input id="surl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://dump-sync.yourname.workers.dev"' +
+      (builtInSync ? ` value="${esc(ownOrigin())}"` : '') + '></label>';
     h += (msg ? `<p class="note" style="color:var(--danger);font-size:13px">${esc(msg)}</p>` : '') +
-      '<label class="field"><span>Sync server address</span><input id="surl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://dump-sync.yourname.workers.dev"></label>' +
+      (builtInSync ? '<p class="note" style="font-size:14px;color:var(--fg)">Type the same passphrase on every phone and laptop, and they’ll all show the same notes.</p>' : urlField) +
       '<label class="field"><span>Passphrase (same on every device)</span><input id="spass" type="password" autocomplete="new-password" placeholder="e.g. four random words you’ll remember"></label>' +
-      '<div class="sbtns"><button class="primary" id="sgo">Connect</button></div>' +
+      '<div class="sbtns"><button class="primary" id="sgo">Turn on sync</button></div>' +
       '<p class="note">Your notes are encrypted on this device with your passphrase before they leave it. The server only stores scrambled data. If you forget the passphrase, synced copies can’t be unlocked, but each device still has its own notes.</p>' +
+      (builtInSync ? '<details class="help"><summary>Use a different sync server</summary>' + urlField + '</details>' : '') +
       '<details class="help"><summary>How do I get a sync server? (free, ~5 min)</summary><ol>' +
       '<li>Sign up at <b>dash.cloudflare.com</b> (free).</li>' +
       '<li><b>Storage &amp; Databases → KV → Create</b>, name it <code>dump</code>.</li>' +
@@ -1734,7 +1750,8 @@ $('#syncbody').addEventListener('click', async e => {
   if (id === 'pmerge' || id === 'pcloud') { resolvePending(id === 'pmerge' ? 'merge' : 'cloud'); renderSyncSheet(); }
   if (id === 'pcancel') { pending = null; renderSyncSheet(); }
   if (id === 'sgo') {
-    const btn = e.target, url = $('#surl').value, pass = $('#spass').value;
+    const typed = ($('#surl') && $('#surl').value.trim()) || '';
+    const btn = e.target, url = typed || (builtInSync ? ownOrigin() : ''), pass = $('#spass').value;
     btn.disabled = true; btn.textContent = 'Connecting…';
     try {
       const r = await connectSync(url, pass);
@@ -1742,7 +1759,7 @@ $('#syncbody').addEventListener('click', async e => {
       if (r === 'connected') toast('Sync is on');
     } catch (err) {
       renderSyncSheet(err.message || String(err));
-      $('#surl').value = url;
+      if ($('#surl') && typed) $('#surl').value = typed;
     }
   }
 });
@@ -1829,6 +1846,18 @@ layoutVV();
 if (!S.history.length) commitHistory('Created');
 if (!saved) saveNow();
 if (SY) { setSync(navigator.onLine ? 'busy' : 'offline'); syncNow(); } else setSync('off');
+
+// Built-in sync: if this app's own address hosts the sync API, offer it once on each new device,
+// so no device quietly keeps notes that the others never see.
+if (location.protocol === 'https:' || location.hostname === 'localhost') {
+  probeSync(ownOrigin()).then(ok => {
+    builtInSync = ok;
+    if ($('#syncdlg').classList.contains('show')) renderSyncSheet();
+    let asked = false;
+    try { asked = localStorage.getItem('dump.syncOffered') === '1'; localStorage.setItem('dump.syncOffered', '1'); } catch {}
+    if (ok && !SY && !asked) openSync();
+  });
+}
 
 /* ================= Offline (needs https, e.g. Netlify) ================= */
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

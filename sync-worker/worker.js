@@ -28,6 +28,10 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
     const url = new URL(request.url);
+    if (url.pathname === '/v1/health') return json({ ok: true, app: 'dump-sync', v: 1 });
+    // When deployed together with the app (wrangler.jsonc at the repo root), everything that
+    // isn't the sync API is the app itself, served from the ./web static assets.
+    if (!url.pathname.startsWith('/v1/') && env.ASSETS) return env.ASSETS.fetch(request);
     if (url.pathname === '/' || url.pathname === '') return json({ ok: true, app: 'dump-sync', v: 1 });
     if (url.pathname !== '/v1/note') return json({ error: 'not found' }, 404);
     if (!env.DUMP) return json({ error: 'KV binding "DUMP" is missing — add it under Settings → Bindings' }, 500);

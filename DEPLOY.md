@@ -2,6 +2,11 @@
 
 This guide gets Dump running on your iPhone and your laptop. It keeps working offline, and once a device is back online it updates itself and syncs your notes.
 
+> **Simplest setup (recommended): one Cloudflare Worker does everything.**
+> Connect this GitHub repo in **Cloudflare → Workers & Pages → Create → Import a repository**, and keep the defaults. The repo's `wrangler.jsonc` serves the app from `web/` and the encrypted sync API from `sync-worker/worker.js` at the same address. It also creates the storage automatically. Every push to `main` redeploys.
+> Then open the app's `…workers.dev` address on each device. The first time, it offers sync and asks only for your passphrase. Use the same passphrase everywhere, and every device shows the same notes.
+> The rest of this guide covers the older two-piece setup: Netlify, plus a separate sync Worker you paste in by hand.
+
 ## What you're setting up
 
 | Piece | Where it lives | What it does |

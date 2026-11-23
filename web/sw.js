@@ -1,6 +1,6 @@
 // Dump offline support: keeps a copy of the app on the phone so it opens without internet.
 // Your notes are never here — they live in Safari's storage. Bump VERSION when you re-upload.
-const VERSION = 'dump-v2';
+const VERSION = 'dump-v3';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
@@ -18,7 +18,9 @@ self.addEventListener('activate', event => {
 // Network first (so updates show up when online), falling back to the saved copy when offline.
 self.addEventListener('fetch', event => {
   const req = event.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  const url = new URL(req.url);
+  // Never cache the sync API: notes must always come fresh from the server.
+  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/v1/')) return;
   event.respondWith((async () => {
     const cache = await caches.open(VERSION);
     try {

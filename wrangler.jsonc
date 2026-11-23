@@ -1,10 +1,15 @@
-// Cloudflare config for hosting the Dump web app from this repo (Workers static assets).
-// Cloudflare's GitHub integration runs `npx wrangler deploy`, which serves everything in ./web.
-// The encrypted sync server is a separate Worker: see sync-worker/ and DEPLOY.md.
+// Cloudflare config: one Worker serves the Dump app (./web) AND its encrypted sync API (/v1/*).
+// Cloudflare's GitHub integration runs `npx wrangler deploy` on every push to main.
 {
   "name": "notes",
+  "main": "sync-worker/worker.js",
   "compatibility_date": "2026-11-01",
   "assets": {
-    "directory": "./web"
-  }
+    "directory": "./web",
+    "binding": "ASSETS"
+  },
+  // Storage for the encrypted notes. With no "id", Wrangler creates the namespace on first deploy.
+  "kv_namespaces": [
+    { "binding": "DUMP" }
+  ]
 }
