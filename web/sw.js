@@ -1,6 +1,6 @@
 // Dump offline support: keeps a copy of the app on the phone so it opens without internet.
 // Your notes are never here — they live in Safari's storage. Bump VERSION when you re-upload.
-const VERSION = 'dump-v3';
+const VERSION = 'dump-v4';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', event => {

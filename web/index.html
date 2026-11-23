@@ -689,7 +689,11 @@ function updateRow(row, l, i) {
   const selected = S.selMode && S.sel.has(l.id);
   const stKey = S.selMode ? staticHTML(l) : '';
   const key = [i, l.text, l.kind, l.shape, l.mark, l.checked, l.n, l.bold, l.color, selected, S.selMode, stKey].join('\u0001');
-  if (row._key === key) return false;
+  if (row._key === key) {
+    // The box can hold text the model doesn't (e.g. a line break that was just split off): resync it.
+    if (row._ta.value !== l.text) { row._ta.value = l.text; return true; }
+    return false;
+  }
   row._key = key;
   row.children[0].textContent = i + 1;
   row.classList.toggle('divider', l.kind === 'divider');
@@ -1595,7 +1599,8 @@ async function syncNow() {
       else if (g.status === 404) SY.rev = 0;
       else throw new Error(g.data.error || 'Server error ' + g.status);
 
-      if (remote && g.data.rev !== SY.rev) {
+      // Compare content too, not just the version number, so devices that drifted apart heal themselves.
+      if (remote && (g.data.rev !== SY.rev || !same(remote, SY.base || []))) {
         const localChanged = !same(S.lines, SY.base || []);
         const next = localChanged ? merge3(SY.base || [], S.lines, remote) : remote;
         applyLines(next, localChanged ? 'Merged with other device' : 'Synced from other device');

@@ -8,7 +8,14 @@
     "directory": "./web",
     "binding": "ASSETS"
   },
-  // Storage for the encrypted notes. With no "id", Wrangler creates the namespace on first deploy.
+  // Notes storage: one strongly consistent Durable Object per sync space (free plan, SQLite-backed).
+  "durable_objects": {
+    "bindings": [{ "name": "NOTES", "class_name": "NoteBox" }]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["NoteBox"] }
+  ],
+  // Earlier storage. Kept only so notes already synced there are copied into the Durable Object.
   "kv_namespaces": [
     { "binding": "DUMP" }
   ]
