@@ -10,7 +10,8 @@
 // `DUMP`, and data already in KV is copied into the Durable Object the first time it's read.
 //
 // API
-//   GET  /v1/health   -> { ok, app: "dump-sync", v: 2 }
+//   GET  /v1/health   -> { ok, app: "dump-sync", v: 3, live }
+//   WS   /v1/live     -> subprotocols ["dump-v1", <id>]; server sends {"type":"changed","rev":N} after each save
 //   GET  /v1/note     -> { rev, data, updated } or 404            header: X-Dump-Id
 //   PUT  /v1/note     -> body { baseRev, data } -> { rev, updated }
 //                        409 { rev, data } if baseRev is not the latest (the app then merges and retries)
@@ -31,8 +32,39 @@ const json = (obj, status = 200) =>
     headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
 
-/** One sync space. All reads and writes for it run here, one at a time, so they can't race. */
+/** One sync space. All reads and writes for it run here, one at a time, so they can't race.
+ *  It also holds a live WebSocket to every open device and tells them the moment a save lands. */
 export class NoteBox extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    // Keep-alive pings are answered without waking the object (WebSocket hibernation).
+    this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+  }
+
+  /** Upgrade to a live connection (hibernatable, so idle devices cost nothing). */
+  async fetch(request) {
+    if (request.headers.get('Upgrade') !== 'websocket') return new Response('expected websocket', { status: 426 });
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    this.ctx.acceptWebSocket(server);
+    return new Response(null, { status: 101, webSocket: client, headers: { 'Sec-WebSocket-Protocol': 'dump-v1' } });
+  }
+
+  webSocketMessage(ws, message) {
+    if (message === 'ping') ws.send('pong');
+  }
+
+  webSocketClose(ws, code) {
+    try { ws.close(code, 'closing'); } catch {}
+  }
+
+  broadcast(rev) {
+    const msg = JSON.stringify({ type: 'changed', rev });
+    for (const ws of this.ctx.getWebSockets()) {
+      try { ws.send(msg); } catch {}
+    }
+  }
+
   async read(legacyKey) {
     let note = await this.ctx.storage.get('note');
     if (!note && legacyKey && this.env.DUMP) {
@@ -51,6 +83,7 @@ export class NoteBox extends DurableObject {
     if (currentRev !== baseRev) return { conflict: true, ...(current || { rev: 0 }) };
     const next = { rev: currentRev + 1, data, updated: Date.now() };
     await this.ctx.storage.put('note', next);
+    this.broadcast(next.rev);
     return next;
   }
 }
@@ -73,7 +106,18 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
     const url = new URL(request.url);
-    if (url.pathname === '/v1/health') return json({ ok: true, app: 'dump-sync', v: 2 });
+    if (url.pathname === '/v1/health') return json({ ok: true, app: 'dump-sync', v: 3, live: !!env.NOTES });
+
+    // Live updates: the sync-space id rides in the WebSocket subprotocol list (browsers can't set
+    // headers on WebSockets), next to "dump-v1", so it never appears in URLs or logs.
+    if (url.pathname === '/v1/live') {
+      if (request.headers.get('Upgrade') !== 'websocket') return json({ error: 'expected websocket' }, 426);
+      if (!env.NOTES) return json({ error: 'live updates need the NOTES Durable Object' }, 501);
+      const protocols = (request.headers.get('Sec-WebSocket-Protocol') || '').split(',').map(s => s.trim());
+      const liveId = protocols.find(p => /^[a-f0-9]{64}$/.test(p));
+      if (!liveId) return json({ error: 'bad id' }, 400);
+      return env.NOTES.get(env.NOTES.idFromName(liveId)).fetch(request);
+    }
     // Deployed together with the app: everything that isn't the sync API is the app itself.
     if (!url.pathname.startsWith('/v1/') && env.ASSETS) return env.ASSETS.fetch(request);
     if (url.pathname === '/' || url.pathname === '') return json({ ok: true, app: 'dump-sync', v: 2 });

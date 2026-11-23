@@ -861,7 +861,7 @@ function changed(structural) {
   saveT = setTimeout(saveNow, 300);
   clearTimeout(histT);
   histT = setTimeout(() => commitHistory('Edit'), structural ? 700 : 2500);
-  if (typeof scheduleSync === 'function') scheduleSync(structural ? 2500 : 4000);
+  if (typeof scheduleSync === 'function') scheduleSync(structural ? 500 : 1200);
 }
 function saveNow() {
   saveT = null;
@@ -1568,7 +1568,7 @@ function setSync(state) {
 function syncLabel() {
   const ago = SY && SY.last ? 'Last synced ' + fmt(SY.last) : 'Not synced yet';
   switch (S.syncState) {
-    case 'ok': return { title: 'Synced', sub: ago };
+    case 'ok': return { title: liveOpen() ? 'Synced · live' : 'Synced', sub: (liveOpen() ? 'Changes from your other devices appear instantly. ' : '') + ago };
     case 'busy': return { title: 'Syncing…', sub: ago };
     case 'offline': return { title: 'Offline — your edits are saved here', sub: 'They will sync when you’re back online. ' + ago };
     case 'error': return { title: 'Sync problem', sub: (SY && SY.err ? SY.err + '. ' : '') + ago };
@@ -1618,6 +1618,7 @@ async function syncNow() {
     }
     SY.last = Date.now();
     SY.err = null;
+    lastSyncAt = Date.now();
     saveSY();
     setSync('ok');
   } catch (e) {
@@ -1629,16 +1630,58 @@ async function syncNow() {
   }
 }
 
-// Is there a Dump sync server at `base`? (New servers answer /v1/health; older standalone ones answer /.)
+// Is there a Dump sync server at `base`? Returns its health info, or null.
+// (New servers answer /v1/health; older standalone ones answer /.)
 async function probeSync(base) {
   for (const path of ['/v1/health', '/']) {
     try {
       const r = await fetch(base + path, { cache: 'no-store' });
       const j = await r.json();
-      if (j && j.app === 'dump-sync') return true;
+      if (j && j.app === 'dump-sync') return j;
     } catch {}
   }
-  return false;
+  return null;
+}
+
+/* ---------- Live updates: the server tells this device the moment another device saves ---------- */
+let ws = null, wsTimer = null, wsPing = null, wsRetry = 0, lastSyncAt = 0;
+const liveOpen = () => !!(ws && ws.readyState === 1);
+function liveConnect() {
+  if (!SY || SY.live === false || !navigator.onLine || document.hidden || !window.WebSocket) return;
+  if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
+  let u;
+  try { u = new URL(SY.url + '/v1/live'); } catch { return; }
+  u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+  try { ws = new WebSocket(u.href, ['dump-v1', SY.id]); } catch { ws = null; return liveRetry(); }
+  const sock = ws;
+  sock.onopen = () => {
+    wsRetry = 0;
+    clearInterval(wsPing);
+    wsPing = setInterval(() => { try { sock.send('ping'); } catch {} }, 30000);
+    if (S.syncState === 'ok') setSync('ok');       // refresh the "Live" label
+    syncNow();                                      // catch up on anything missed while disconnected
+  };
+  sock.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (m && m.type === 'changed' && SY && m.rev !== SY.rev) syncNow();
+  };
+  sock.onclose = () => {
+    if (ws === sock) ws = null;
+    clearInterval(wsPing);
+    if (S.syncState === 'ok') setSync('ok');
+    liveRetry();
+  };
+  sock.onerror = () => { try { sock.close(); } catch {} };
+}
+function liveRetry() {
+  clearTimeout(wsTimer);
+  if (!SY || document.hidden) return;
+  const delay = Math.min(30000, 1000 * 2 ** wsRetry++);
+  wsTimer = setTimeout(liveConnect, delay);
+}
+function liveDisconnect() {
+  clearTimeout(wsTimer); clearInterval(wsPing);
+  if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
 }
 // The app's own address usually hosts sync too, so devices only need the passphrase.
 let builtInSync = false;
@@ -1655,9 +1698,10 @@ async function connectSync(url, pass) {
   if (!/^https:\/\//i.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)/i.test(url)) throw new Error('The sync address should start with https://');
   if (pass.length < 8) throw new Error('Use a passphrase of at least 8 characters (4 random words is great)');
   if (!cryptoOK()) throw new Error('Open the app from its https:// address to use sync');
-  if (!(await probeSync(url))) throw new Error('No Dump sync server at that address. Check the URL.');
+  const health = await probeSync(url);
+  if (!health) throw new Error('No Dump sync server at that address. Check the URL.');
   const secrets = await deriveSecrets(pass);
-  const cfg = { url, id: secrets.id, key: secrets.key, rev: 0, base: null, last: 0, err: null };
+  const cfg = { url, id: secrets.id, key: secrets.key, rev: 0, base: null, last: 0, err: null, live: !!health.live };
   const prev = SY, prevKey = syncKey;
   SY = cfg; syncKey = null;
   let g;
@@ -1670,7 +1714,7 @@ async function connectSync(url, pass) {
     if (isPristine()) {
       applyLines(remote, 'Synced from other device');
       Object.assign(SY, { rev: g.data.rev, base: clone(remote), last: Date.now() });
-      saveSY(); setSync('ok');
+      saveSY(); setSync('ok'); liveConnect();
       return 'connected';
     }
     pending = { cfg, remote, rev: g.data.rev };
@@ -1680,6 +1724,7 @@ async function connectSync(url, pass) {
   if (g.status !== 404) { SY = prev; syncKey = prevKey; throw new Error(g.data.error || 'Server error ' + g.status); }
   saveSY();
   await syncNow();
+  liveConnect();
   return 'connected';
 }
 
@@ -1693,9 +1738,11 @@ function resolvePending(mode) {
   pending = null;
   saveSY();
   syncNow();
+  liveConnect();
 }
 
 function disconnectSync() {
+  liveDisconnect();
   SY = null; syncKey = null; pending = null;
   try { localStorage.removeItem(SKEY); } catch {}
   setSync('off');
@@ -1770,10 +1817,19 @@ $('#syncbody').addEventListener('click', async e => {
 });
 $('#syncbody').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'spass') $('#sgo').click(); });
 
-window.addEventListener('online', () => syncNow());
+window.addEventListener('online', () => { syncNow(); wsRetry = 0; liveConnect(); });
 window.addEventListener('offline', () => { if (SY) setSync('offline'); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && SY) syncNow(); else if (document.hidden && SY) syncNow(); });
-setInterval(() => { if (SY && !document.hidden && !syncing) syncNow(); }, 30000);
+document.addEventListener('visibilitychange', () => {
+  if (!SY) return;
+  syncNow();                                         // coming back: catch up; leaving: push edits
+  if (!document.hidden) { wsRetry = 0; liveConnect(); }
+});
+// Backup check: every 30 s without a live connection, every 5 min with one.
+setInterval(() => {
+  if (!SY || document.hidden || syncing) return;
+  if (liveOpen() && Date.now() - lastSyncAt < 300000) return;
+  syncNow();
+}, 30000);
 
 /* ================= Keyboard shortcuts (laptop) ================= */
 document.addEventListener('keydown', e => {
@@ -1850,7 +1906,16 @@ fitAll();
 layoutVV();
 if (!S.history.length) commitHistory('Created');
 if (!saved) saveNow();
-if (SY) { setSync(navigator.onLine ? 'busy' : 'offline'); syncNow(); } else setSync('off');
+if (SY) {
+  setSync(navigator.onLine ? 'busy' : 'offline');
+  syncNow();
+  // Check (once per launch) whether the server supports live updates, then connect.
+  probeSync(SY.url).then(h => {
+    if (!SY) return;
+    if (h) { SY.live = !!h.live; saveSY(); }
+    liveConnect();
+  });
+} else setSync('off');
 
 // Built-in sync: if this app's own address hosts the sync API, offer it once on each new device,
 // so no device quietly keeps notes that the others never see.
