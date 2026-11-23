@@ -1,0 +1,1840 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Dump">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<title>Dump</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --fg: #000000;
+  --muted: rgba(60,60,67,.45);
+  --rule: rgba(0,0,0,.30);
+  --accent: #f29a1c;
+  --accent-soft: rgba(242,154,28,.16);
+  --accent-mark: rgba(242,154,28,.35);
+  --tile: rgba(0,0,0,.055);
+  --glass: rgba(255,255,255,.62);
+  --glass-strong: rgba(255,255,255,.78);
+  --glass-edge: rgba(255,255,255,.85);
+  --glass-line: rgba(0,0,0,.07);
+  --glass-shadow: 0 10px 32px rgba(0,0,0,.13), 0 1px 3px rgba(0,0,0,.08);
+  --danger: #e5383b;
+  --rh: 32px;
+  --kb: 0px;
+  --vvtop: 0px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --side: 16px;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --fg: #ffffff;
+    --muted: rgba(235,235,245,.4);
+    --rule: rgba(255,255,255,.32);
+    --accent: #ffad3a;
+    --accent-soft: rgba(255,173,58,.17);
+    --accent-mark: rgba(255,173,58,.38);
+    --tile: rgba(255,255,255,.07);
+    --glass: rgba(40,40,44,.52);
+    --glass-strong: rgba(48,48,52,.72);
+    --glass-edge: rgba(255,255,255,.16);
+    --glass-line: rgba(255,255,255,.06);
+    --glass-shadow: 0 10px 32px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4);
+    --danger: #ff5a5f;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); }
+body {
+  font: 17px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; }
+svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; display: block; }
+.noselect, #top, #bottom, #selwrap, .gut, .mk { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* ---------- Liquid Glass ---------- */
+.glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(22px) saturate(185%);
+  backdrop-filter: blur(22px) saturate(185%);
+  box-shadow: inset 0 1px 0.5px var(--glass-edge), inset 0 -0.5px 0 var(--glass-line), 0 0 0 0.5px var(--glass-line), var(--glass-shadow);
+}
+.press { transition: transform .18s cubic-bezier(.3,1.4,.5,1), background-color .2s; }
+.press:active { transform: scale(.92); }
+
+/* ---------- Lines ---------- */
+#lines {
+  padding: calc(env(safe-area-inset-top, 0px) + 66px) 14px 0 0;
+  isolation: isolate;
+}
+#tail { height: 50vh; }
+body.sel #tail { height: 620px; }
+.row { display: flex; align-items: flex-start; gap: 8px; position: relative; --ink: var(--fg); }
+.row.selected::before {
+  content: ""; position: absolute; inset: 0 -4px 0 2px; border-radius: 10px;
+  background: var(--accent-soft); z-index: -1;
+}
+.gut {
+  flex: none; width: 30px; padding-left: 6px; height: var(--rh); line-height: var(--rh);
+  font: 500 10px/var(--rh) ui-monospace, "SF Mono", Menlo, monospace;
+  text-align: right; color: var(--muted); cursor: pointer;
+}
+.row.selected .gut { color: var(--accent); font-weight: 800; }
+.mk { flex: none; height: var(--rh); display: none; align-items: center; justify-content: flex-end; color: var(--ink); cursor: pointer; }
+.row.has-mk .mk { display: flex; }
+.mk .bul { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); margin: 0 4px; }
+.mk .num { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 18px; text-align: right; }
+.mk .cbx { width: 24px; display: flex; justify-content: center; }
+.mk .cbx svg { width: 20px; height: 20px; display: block; }
+.tx, .st {
+  flex: 1; min-width: 0; margin: 0; padding: 5px 0;
+  font: inherit; font-size: 17px; line-height: 22px; color: var(--ink);
+}
+.tx {
+  border: 0; outline: 0; resize: none; background: transparent; overflow: hidden;
+  height: var(--rh); -webkit-appearance: none; appearance: none; border-radius: 0;
+  caret-color: var(--accent); display: block;
+}
+.st { display: none; white-space: pre-wrap; overflow-wrap: anywhere; min-height: var(--rh); cursor: text; }
+body.sel .tx { display: none; }
+body.sel .row:not(.divider) .st { display: block; }
+.row.bold .tx, .row.bold .st { font-weight: 700; }
+.row.checked .tx, .row.checked .st { opacity: .45; }
+.st mark { background: var(--accent-mark); color: inherit; border-radius: 3px; }
+.caret { display: inline-block; width: 2px; height: 21px; margin: 0 -1px; vertical-align: -5px; background: var(--accent); border-radius: 1px; animation: blink 1.05s steps(2, start) infinite; }
+@keyframes blink { to { visibility: hidden; } }
+.rule { display: none; flex: 1; height: var(--rh); position: relative; cursor: pointer; }
+.rule::after { content: ""; position: absolute; left: 0; right: 0; top: 15px; height: 2px; border-radius: 1px; background: var(--rule); }
+.row.colored .rule::after { background: var(--ink); }
+.row.divider .rule { display: block; }
+.row.divider .tx, .row.divider .st, .row.divider .mk { display: none !important; }
+
+/* ---------- Top bar ---------- */
+#top {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 20;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) var(--side) 10px;
+  display: flex; align-items: center; gap: 10px;
+  transform: translateY(var(--vvtop));
+  pointer-events: none;
+}
+#top::before {
+  content: ""; position: absolute; inset: 0 0 -14px 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(var(--bg) 55%, transparent);
+}
+#top > * { pointer-events: auto; }
+#colors {
+  position: relative; height: 44px; width: 312px; max-width: calc(100vw - 86px);
+  border-radius: 22px; display: flex; align-items: center; padding: 0 6px; gap: 4px; overflow: hidden;
+  transition: width .5s cubic-bezier(.32,1.25,.45,1), padding .5s cubic-bezier(.32,1.25,.45,1);
+}
+.sw {
+  flex: none; width: 34px; height: 40px; display: grid; place-items: center; position: relative;
+  transition: opacity .25s, transform .35s cubic-bezier(.3,1.4,.5,1);
+}
+.sw::before { content: ""; width: 26px; height: 26px; border-radius: 50%; background: var(--c); }
+.sw[data-c="ink"]::before { box-shadow: inset 0 0 0 1px var(--muted); }
+.sw.on::after {
+  content: ""; position: absolute; width: 33px; height: 33px; border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--c);
+}
+.sw[data-c="ink"].on::after { box-shadow: inset 0 0 0 2px var(--fg); }
+#coldot {
+  position: absolute; left: 11px; top: 11px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--dot, gray); opacity: 0; transform: scale(.4);
+  transition: opacity .3s, transform .45s cubic-bezier(.3,1.4,.5,1); pointer-events: none;
+}
+body.sel:not(.colors-open) #colors { width: 44px; padding: 0; }
+body.sel:not(.colors-open) .sw { opacity: 0; transform: scale(.3); pointer-events: none; }
+body.sel:not(.colors-open) #coldot { opacity: 1; transform: scale(1); }
+#syncbtn { margin-left: auto; position: relative; transition: opacity .25s; }
+body.sel #syncbtn { opacity: 0; pointer-events: none; }
+#syncbtn svg.i { width: 22px; height: 22px; }
+#syncbtn[data-state="ok"] { color: #2fb457; }
+#syncbtn[data-state="busy"] { color: var(--accent); }
+#syncbtn[data-state="busy"] svg { animation: pulse 1s ease-in-out infinite; }
+#syncbtn[data-state="offline"], #syncbtn[data-state="off"] { color: var(--muted); }
+#syncbtn[data-state="error"] { color: var(--danger); }
+@keyframes pulse { 50% { opacity: .35; } }
+#selhead {
+  position: absolute; right: var(--side); bottom: 10px; display: flex; gap: 8px; align-items: center;
+  opacity: 0; transform: translateX(24px) scale(.85); pointer-events: none;
+  transition: opacity .3s, transform .45s cubic-bezier(.3,1.3,.5,1);
+}
+body.sel:not(.colors-open) #selhead { opacity: 1; transform: none; pointer-events: auto; }
+.cbtn { width: 44px; height: 44px; border-radius: 22px; display: grid; place-items: center; }
+.cbtn svg.i { width: 20px; height: 20px; }
+.pill { height: 44px; border-radius: 22px; display: flex; }
+.pill > * { width: 44px; height: 44px; display: grid; place-items: center; }
+#done { background: var(--accent); color: #fff; box-shadow: inset 0 1px 0.5px rgba(255,255,255,.5), 0 6px 18px rgba(242,154,28,.35); }
+#colclose { display: none; }
+body.sel.colors-open #colclose { display: grid; }
+
+/* ---------- Bottom bar ---------- */
+#bottom {
+  position: fixed; left: 0; right: 0; z-index: 20;
+  bottom: calc(var(--kb) + var(--safe-b) + 10px);
+  padding: 0 var(--side); display: flex; align-items: center; gap: 10px;
+  transition: opacity .25s, transform .35s cubic-bezier(.3,1.2,.5,1);
+}
+body.kb { --safe-b: 0px; }
+body.kb #bottom { bottom: calc(var(--kb) + 6px); }
+body.sel #bottom { opacity: 0; transform: translateY(30px); pointer-events: none; }
+.bgroup { height: 48px; border-radius: 24px; display: flex; }
+.bgroup > button { width: 52px; height: 48px; display: grid; place-items: center; }
+.bgroup > button.on { color: var(--accent); }
+#bold { font-weight: 800; font-size: 19px; font-family: Georgia, "Times New Roman", serif; }
+#bold.on { font-weight: 900; }
+.spacer { flex: 1; }
+#kbhide { display: none; }
+body.editing #kbhide { display: grid; }
+
+/* ---------- Point menu ---------- */
+#pointmenu {
+  position: fixed; right: var(--side); z-index: 30; width: 280px; border-radius: 26px; padding: 12px;
+  bottom: calc(var(--kb) + var(--safe-b) + 68px);
+  transform-origin: 90% 100%;
+  opacity: 0; transform: scale(.6) translateY(20px); pointer-events: none;
+  transition: opacity .2s, transform .35s cubic-bezier(.3,1.35,.5,1);
+}
+body.kb #pointmenu { bottom: calc(var(--kb) + 64px); }
+body.pm-open #pointmenu { opacity: 1; transform: none; pointer-events: auto; }
+#pointmenu h6 { margin: 8px 4px 6px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.prow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.prow.three { grid-template-columns: repeat(3, 1fr); }
+.popt { height: 48px; border-radius: 14px; background: var(--tile); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; font-weight: 500; }
+.popt svg { width: 20px; height: 20px; }
+.popt.on { background: var(--accent-soft); color: var(--accent); }
+
+/* ---------- Selection menu + trackpad ---------- */
+#selwrap {
+  position: fixed; left: 0; right: 0; z-index: 25; padding: 0 10px;
+  bottom: calc(var(--safe-b) + 6px);
+  display: flex; flex-direction: column; gap: 8px;
+  transform: translateY(calc(100% + 60px)); opacity: 0; pointer-events: none;
+  transition: transform .5s cubic-bezier(.3,1.15,.45,1), opacity .25s;
+}
+body.sel #selwrap { transform: none; opacity: 1; pointer-events: auto; }
+#selmenu { border-radius: 30px; padding: 12px; }
+#selbar { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 10px; }
+#seltitle { font-size: 15px; font-weight: 600; }
+#padtoggle { font-size: 13px; font-weight: 600; color: var(--muted); display: flex; gap: 5px; align-items: center; }
+#padtoggle svg { width: 18px; height: 18px; }
+body.pad #padtoggle { color: var(--accent); }
+#tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.tile {
+  min-height: 52px; border-radius: 14px; background: var(--tile);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 10px; font-weight: 500; white-space: nowrap; overflow: hidden;
+}
+.tile svg.i { width: 20px; height: 20px; }
+.tile.on { background: var(--accent-soft); color: var(--accent); }
+.tile.danger { color: var(--danger); }
+.tile:disabled { opacity: .32; }
+.tile .glyph { font-size: 17px; font-weight: 800; line-height: 20px; height: 20px; }
+#pad { border-radius: 28px; padding: 12px; display: none; }
+body.pad #pad { display: block; animation: rise .4s cubic-bezier(.3,1.3,.5,1); }
+@keyframes rise { from { transform: translateY(30px) scale(.95); opacity: 0; } }
+#padhead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+#padlabel { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex: 1; }
+#padlabel b { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: var(--fg); color: var(--bg); }
+#pad.end #padlabel { color: var(--accent); }
+#pad.end #padlabel b { background: var(--accent); }
+#padreset { font-size: 13px; font-weight: 600; color: var(--accent); display: none; }
+#pad.end #padreset { display: block; }
+#padclose { width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; }
+#padclose svg { width: 14px; height: 14px; stroke-width: 2.4; }
+#padarea {
+  height: 140px; border-radius: 20px; background: var(--tile); touch-action: none;
+  display: grid; place-items: center; color: var(--muted); transition: background .2s;
+}
+#padarea.touch { background: var(--accent-soft); }
+#padarea svg { width: 30px; height: 30px; stroke-width: 1.3; transition: opacity .2s; }
+#padarea.touch svg { opacity: 0; }
+
+/* ---------- Toast, dialogs, history ---------- */
+#toast {
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 64px + var(--vvtop)); z-index: 60;
+  transform: translate(-50%, -12px); opacity: 0; pointer-events: none;
+  padding: 9px 16px; border-radius: 20px; font-size: 15px; font-weight: 600;
+  transition: opacity .2s, transform .35s cubic-bezier(.3,1.4,.5,1);
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+.scrim {
+  position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.28);
+  display: none; align-items: flex-end; justify-content: center;
+}
+.scrim.show { display: flex; animation: fade .2s; }
+@keyframes fade { from { opacity: 0; } }
+#numdlg .card {
+  width: min(320px, calc(100vw - 40px)); border-radius: 28px; padding: 18px; margin-bottom: auto; margin-top: 22vh;
+  background: var(--glass-strong); animation: rise .35s cubic-bezier(.3,1.3,.5,1);
+}
+#numdlg h3 { margin: 0 0 4px; font-size: 17px; text-align: center; }
+#numdlg p { margin: 0 0 14px; font-size: 13px; color: var(--muted); text-align: center; }
+#numin {
+  width: 100%; height: 48px; border-radius: 14px; border: 0; outline: 0; padding: 0 14px;
+  font: 600 22px/48px -apple-system, system-ui; text-align: center; background: var(--tile); color: var(--fg);
+}
+.dlgbtns { display: flex; gap: 8px; margin-top: 14px; }
+.dlgbtns button { flex: 1; height: 46px; border-radius: 23px; font-weight: 600; background: var(--tile); }
+.dlgbtns button.primary { background: var(--accent); color: #fff; }
+#hist .sheet {
+  width: 100%; max-width: 640px; height: calc(100dvh - env(safe-area-inset-top, 0px) - 28px);
+  border-radius: 30px 30px 0 0; background: var(--glass-strong);
+  display: flex; flex-direction: column; animation: up .42s cubic-bezier(.3,1.1,.45,1);
+}
+@keyframes up { from { transform: translateY(100%); } }
+.shead { display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px; }
+.shead h3 { flex: 1; margin: 0; font-size: 17px; text-align: center; }
+.shead button { font-weight: 600; color: var(--accent); min-width: 56px; height: 36px; }
+.shead .l { text-align: left; } .shead .r { text-align: right; }
+.sbody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 20px); }
+.hrow { display: flex; gap: 10px; padding: 12px 4px; border-bottom: 0.5px solid var(--glass-line); width: 100%; text-align: left; align-items: flex-start; }
+.hdot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); margin-top: 6px; flex: none; }
+.hrow.cur .hdot { background: var(--accent); }
+.hmain { flex: 1; min-width: 0; }
+.hlabel { font-size: 15px; font-weight: 600; display: flex; gap: 6px; align-items: center; }
+.hcur { font-size: 10px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 2px 6px; border-radius: 8px; }
+.hprev { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.hdate { font-size: 11px; color: var(--muted); opacity: .8; margin-top: 2px; }
+.hstat { font: 600 12px ui-monospace, Menlo, monospace; display: flex; gap: 6px; white-space: nowrap; }
+.add { color: #2fb457; } .rem { color: var(--danger); } .chg { color: #f08a00; }
+.prevline { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 16px; color: var(--ink, var(--fg)); }
+.prevline .mk { display: flex; height: auto; }
+.prevline.checked span.t { opacity: .45; }
+.prevline.bold { font-weight: 700; }
+.prevrule { height: 2px; background: var(--rule); margin: 10px 0; border-radius: 1px; }
+.hactions { display: flex; gap: 8px; padding: 10px 0 16px; }
+.hactions button { flex: 1; height: 44px; border-radius: 22px; background: var(--tile); font-weight: 600; }
+.hactions button.primary { background: var(--accent); color: #fff; }
+.backup { display: flex; gap: 8px; padding: 6px 0 12px; }
+.backup button { flex: 1; height: 38px; border-radius: 19px; background: var(--tile); font-size: 13px; font-weight: 600; }
+.note { font-size: 12px; color: var(--muted); padding: 0 4px 8px; line-height: 1.4; }
+
+/* ---------- Sync sheet ---------- */
+#syncdlg .sheet {
+  width: 100%; max-width: 520px; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 28px);
+  border-radius: 30px 30px 0 0; background: var(--glass-strong);
+  display: flex; flex-direction: column; animation: up .42s cubic-bezier(.3,1.1,.45,1);
+}
+.sstatus { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: var(--tile); margin-bottom: 14px; }
+.sstatus .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.sstatus[data-state="ok"] .dot { background: #2fb457; }
+.sstatus[data-state="busy"] .dot { background: var(--accent); animation: pulse 1s infinite; }
+.sstatus[data-state="error"] .dot { background: var(--danger); }
+.sstatus b { display: block; font-size: 15px; }
+.sstatus small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+.field { display: block; margin-bottom: 12px; }
+.field span { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 4px 6px; }
+.field input {
+  width: 100%; height: 46px; border-radius: 14px; border: 0; outline: 0; padding: 0 14px;
+  font: 16px -apple-system, system-ui; background: var(--tile); color: var(--fg);
+}
+.field input:focus { box-shadow: 0 0 0 2px var(--accent-soft), inset 0 0 0 1px var(--accent); }
+.sbtns { display: flex; gap: 8px; margin: 4px 0 14px; }
+.sbtns button { flex: 1; height: 46px; border-radius: 23px; background: var(--tile); font-weight: 600; }
+.sbtns button.primary { background: var(--accent); color: #fff; }
+.sbtns button.danger { color: var(--danger); }
+.sbtns button:disabled { opacity: .5; }
+details.help { font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
+details.help summary { font-weight: 600; color: var(--accent); cursor: pointer; padding: 4px; }
+details.help ol { padding-left: 22px; margin: 8px 0; }
+details.help code { font-size: 12px; background: var(--tile); padding: 1px 5px; border-radius: 5px; }
+.kbd-list { font-size: 13px; line-height: 1.8; color: var(--muted); padding: 0 4px 10px; }
+.kbd-list kbd { font: 600 11px ui-monospace, Menlo, monospace; background: var(--tile); padding: 2px 6px; border-radius: 6px; color: var(--fg); }
+
+/* ---------- Laptop / tablet ---------- */
+@media (min-width: 700px) {
+  :root { --side: max(20px, calc(50vw - 390px)); }
+  #lines { max-width: 780px; margin: 0 auto; padding-right: 28px; padding-top: 80px; }
+  #tail { max-width: 780px; margin: 0 auto; }
+  #bottom { bottom: 18px; }
+  #selwrap { max-width: 620px; margin: 0 auto; bottom: 14px; }
+  #toast { top: 76px; }
+  .tile { min-height: 58px; font-size: 11px; }
+  #hist .sheet, #syncdlg .sheet { border-radius: 30px; margin: auto; max-height: 86vh; }
+  #hist .sheet { height: 86vh; }
+  .scrim { align-items: center; }
+}
+@media (hover: hover) {
+  .gut:hover { color: var(--accent); }
+  .tile:hover, .popt:hover { filter: brightness(.96); }
+  .bgroup > button:hover, .pill > button:hover { color: var(--accent); }
+  .cbtn:hover { color: var(--accent); }
+}
+@media (hover: hover) and (prefers-color-scheme: dark) {
+  .tile:hover, .popt:hover { filter: brightness(1.25); }
+}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div id="colors" class="glass press" role="toolbar" aria-label="Text colour">
+    <span id="coldot"></span>
+  </div>
+  <button id="colclose" class="cbtn glass press" aria-label="Hide colours"></button>
+  <button id="syncbtn" class="cbtn glass press" data-state="off" aria-label="Sync" title="Sync"></button>
+  <div id="selhead">
+    <div class="pill glass">
+      <button id="left" class="press" aria-label="Move left (hold for trackpad)"></button>
+      <button id="right" class="press" aria-label="Move right (hold for trackpad)"></button>
+    </div>
+    <button id="copy" class="cbtn glass press" aria-label="Copy"></button>
+    <button id="selall" class="cbtn glass press" aria-label="Select all"></button>
+    <button id="done" class="cbtn press" aria-label="Done"></button>
+  </div>
+</div>
+
+<main id="lines"></main>
+<div id="tail"></div>
+
+<div id="bottom">
+  <div class="bgroup glass">
+    <button id="seltext" class="press" aria-label="Select text"></button>
+    <button id="bold" class="press" aria-label="Bold">B</button>
+  </div>
+  <div class="spacer"></div>
+  <button id="kbhide" class="cbtn glass press" aria-label="Hide keyboard"></button>
+  <div class="spacer"></div>
+  <div class="bgroup glass">
+    <button id="divbtn" class="press" aria-label="Line break"></button>
+    <button id="pointbtn" class="press" aria-label="Point style"></button>
+  </div>
+</div>
+
+<div id="pointmenu" class="glass" role="menu"></div>
+
+<div id="selwrap">
+  <div id="pad" class="glass">
+    <div id="padhead">
+      <div id="padlabel"><b>1</b><span>Drag to place start</span></div>
+      <button id="padreset">Start again</button>
+      <button id="padclose" class="glass press" aria-label="Close trackpad"></button>
+    </div>
+    <div id="padarea" aria-label="Trackpad"></div>
+  </div>
+  <div id="selmenu" class="glass">
+    <div id="selbar">
+      <span id="seltitle">1 line</span>
+      <button id="padtoggle"></button>
+    </div>
+    <div id="tiles"></div>
+  </div>
+</div>
+
+<div id="toast" class="glass"></div>
+
+<div id="numdlg" class="scrim">
+  <div class="card glass">
+    <h3>Point number</h3>
+    <p>Use any number. Lines after it keep their own numbers.</p>
+    <input id="numin" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+    <div class="dlgbtns">
+      <button id="numcancel">Cancel</button>
+      <button id="numset" class="primary">Set</button>
+    </div>
+  </div>
+</div>
+
+<div id="hist" class="scrim">
+  <div class="sheet glass">
+    <div class="shead">
+      <button id="hback" class="l"></button>
+      <h3 id="htitle">Edit History</h3>
+      <button id="hdone" class="r">Done</button>
+    </div>
+    <div id="hbody" class="sbody"></div>
+  </div>
+</div>
+<input id="importfile" type="file" accept="application/json,.json" hidden>
+
+<div id="syncdlg" class="scrim">
+  <div class="sheet glass">
+    <div class="shead">
+      <span style="min-width:56px"></span>
+      <h3>Sync</h3>
+      <button id="syncdone" class="r">Done</button>
+    </div>
+    <div id="syncbody" class="sbody"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+(() => {
+/* ================= Storage keys & helpers ================= */
+const KEY = 'dump.note.v1', HKEY = 'dump.history.v1', HLIMIT = 200;
+const $ = s => document.querySelector(s);
+const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+
+/* ================= Colours (tuned per light/dark) ================= */
+const COLORS = ['ink', 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'];
+const NAMES = { ink: 'Default', red: 'Red', orange: 'Orange', yellow: 'Yellow', green: 'Green', blue: 'Blue', indigo: 'Indigo', violet: 'Violet' };
+const HSB = {
+  dark:  { red: [.995,.58,1], orange: [.075,.66,1], yellow: [.145,.62,1], green: [.37,.52,.90], blue: [.575,.56,1], indigo: [.665,.48,1], violet: [.795,.46,1] },
+  light: { red: [.99,.86,.82], orange: [.065,.92,.88], yellow: [.115,.98,.72], green: [.38,.88,.55], blue: [.59,.92,.80], indigo: [.675,.78,.72], violet: [.80,.72,.68] }
+};
+function hsb(h, s, v) {
+  const i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  let r, g, b;
+  switch (i % 6) { case 0: r = v; g = t; b = p; break; case 1: r = q; g = v; b = p; break; case 2: r = p; g = v; b = t; break;
+    case 3: r = p; g = q; b = v; break; case 4: r = t; g = p; b = v; break; default: r = v; g = p; b = q; }
+  return `rgb(${Math.round(r * 255)} ${Math.round(g * 255)} ${Math.round(b * 255)})`;
+}
+(function injectColors() {
+  const block = dark => {
+    let out = `--c-ink:${dark ? '#fff' : '#000'};--m-ink:${dark ? 'rgb(158 158 158)' : 'rgb(107 107 107)'};`;
+    for (const c of COLORS.slice(1)) {
+      const [h, s, b] = HSB[dark ? 'dark' : 'light'][c];
+      out += `--c-${c}:${hsb(h, s, b)};--m-${c}:${hsb(h, s * .32, dark ? .68 : .62)};`;
+    }
+    return out;
+  };
+  const st = document.createElement('style');
+  st.textContent = `:root{${block(false)}}@media (prefers-color-scheme: dark){:root{${block(true)}}}`;
+  document.head.appendChild(st);
+})();
+
+/* ================= Icons ================= */
+const P = {
+  cursor: '<path d="M9 4h6M9 20h6M12 4v16"/>',
+  minus: '<path d="M4 12h16"/>',
+  bullets: '<circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/><path d="M9 6h11M9 12h11M9 18h11"/>',
+  numbers: '<text x="2" y="8.5" font-size="7" font-weight="700" fill="currentColor" stroke="none" font-family="-apple-system,system-ui">1</text><text x="2" y="15" font-size="7" font-weight="700" fill="currentColor" stroke="none" font-family="-apple-system,system-ui">2</text><text x="2" y="21.5" font-size="7" font-weight="700" fill="currentColor" stroke="none" font-family="-apple-system,system-ui">3</text><path d="M10 6h10M10 12.5h10M10 19h10"/>',
+  plain: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+  indent: '<path d="M4 6h16M10 12h10M10 18h10M4 10.5l3 2-3 2"/>',
+  left: '<path d="M15 5l-7 7 7 7"/>',
+  right: '<path d="M9 5l7 7-7 7"/>',
+  up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+  chevup: '<path d="M6 15l6-6 6 6"/>',
+  copy: '<rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.5"/><path d="M15.5 8.5V6.5a2.5 2.5 0 0 0-2.5-2.5H6.5A2.5 2.5 0 0 0 4 6.5V13a2.5 2.5 0 0 0 2.5 2.5h2"/>',
+  selall: '<path d="M3.5 6l1.6 1.6L8 4.8M3.5 12l1.6 1.6L8 10.8M3.5 18l1.6 1.6L8 16.8M11.5 6.2h9M11.5 12.2h9M11.5 18.2h9"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5a1.6 1.6 0 0 0 1.6 1.5h6.8a1.6 1.6 0 0 0 1.6-1.5L18 7M9 7V4.5h6V7"/>',
+  above: '<path d="M12 3v6M9 6h6M4 14h16M4 19h16"/>',
+  below: '<path d="M4 5h16M4 10h16M12 14v7M8.5 17.5h7"/>',
+  dup: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 4H6.5A2.5 2.5 0 0 0 4 6.5V16M14 11v6M11 14h6"/>',
+  paste: '<path d="M9 4h6v3H9zM15 5.5h2.5A1.5 1.5 0 0 1 19 7v12.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5V7a1.5 1.5 0 0 1 1.5-1.5H9M9 12h6M9 16h4"/>',
+  clock: '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5M3.5 3.8v4.7h4.7"/><path d="M12 7.5V12l3 2"/>',
+  hash: '<path d="M5 9h14M5 15h14M10.5 4L8.5 20M15.5 4l-2 16"/>',
+  renum: '<path d="M4 7.5L6 6v6M4 12h4M10.5 7.5c0-1 .8-1.5 1.7-1.5s1.8.6 1.8 1.6c0 1.6-3.5 2.6-3.5 4.4h3.6M17 6.3c.4-.3 1-.5 1.6-.5 1 0 1.8.6 1.8 1.5s-.8 1.5-1.8 1.5c1.1 0 1.9.6 1.9 1.6s-.9 1.6-1.9 1.6c-.6 0-1.2-.2-1.6-.6"/><path d="M4 17h16M4 20.5h10"/>',
+  circle: '<circle cx="12" cy="12" r="8"/>',
+  square: '<rect x="4" y="4" width="16" height="16" rx="4.2"/>',
+  tickbox: '<circle cx="12" cy="12" r="8"/><path d="M8.3 12.3l2.6 2.6 5-5.4"/>',
+  kbd: '<rect x="2.5" y="4" width="19" height="11" rx="2.5"/><path d="M6 7.8h.01M9.3 7.8h.01M12.6 7.8h.01M15.9 7.8h.01M8 11.4h8M9 18.5l3 2.5 3-2.5"/>',
+  pad: '<rect x="3" y="4" width="18" height="12.5" rx="3"/><path d="M9 20h6"/>',
+  hand: '<path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11m0-1.5V4a1.5 1.5 0 0 1 3 0v6m0-3.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.6a6 6 0 0 1-4.9-2.6L3.8 15a1.6 1.6 0 0 1 2.6-1.9L9 15V11"/>',
+  'cloud-off': '<path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9.5H7z"/><path d="M12 11v5M9.5 13.5h5"/>',
+  'cloud-ok': '<path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9.5H7z"/><path d="M9.3 13.8l2 2 3.6-4"/>',
+  'cloud-busy': '<path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9.5H7z"/><path d="M12 10.5v5.5M9.6 13.6L12 16l2.4-2.4"/>',
+  'cloud-offline': '<path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9.5H7z"/><path d="M4 4l16 16"/>',
+  'cloud-error': '<path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9.5H7z"/><path d="M12 10.5v3M12 16.2h.01"/>'
+};
+const icon = (n, extra = '') => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" ${extra}>${P[n]}</svg>`;
+
+function cbSVG(shape, mark, checked) {
+  const outline = shape === 'circle'
+    ? (a => `<circle cx="10" cy="10" r="8.1" ${a}/>`)
+    : (a => `<rect x="1.9" y="1.9" width="16.2" height="16.2" rx="4.3" ${a}/>`);
+  let s = '<svg viewBox="0 0 20 20" aria-hidden="true">';
+  if (checked && mark === 'fill') s += outline('fill="currentColor"');
+  else s += outline(`fill="none" stroke="currentColor" stroke-width="1.7" opacity="${checked ? 1 : .75}"`);
+  if (checked) {
+    if (mark === 'tick') s += '<path d="M6 10.5l2.8 2.8L14.3 7.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+    if (mark === 'cross') s += '<path d="M7 7l6 6M13 7l-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>';
+    if (mark === 'dot') s += shape === 'circle' ? '<circle cx="10" cy="10" r="4.3" fill="currentColor"/>' : '<rect x="5.7" y="5.7" width="8.6" height="8.6" rx="2" fill="currentColor"/>';
+  }
+  return s + '</svg>';
+}
+const MARKS = ['fill', 'tick', 'cross', 'dot'];
+const MARK_NAMES = { fill: 'Solid', tick: 'Tick', cross: 'Cross', dot: 'Dot' };
+
+/* ================= Model ================= */
+function L(text = '', kind = 'plain', extra = {}) {
+  return Object.assign({ id: uid(), text, kind, shape: 'circle', mark: 'fill', checked: false, n: 1, bold: false, color: 'ink' }, extra);
+}
+const isList = l => l.kind !== 'plain' && l.kind !== 'divider';
+function continuation(l) {
+  const n = L('', 'plain', { bold: l.bold, color: l.color });
+  if (l.kind === 'bullet') n.kind = 'bullet';
+  if (l.kind === 'check') Object.assign(n, { kind: 'check', shape: l.shape, mark: l.mark, checked: false });
+  if (l.kind === 'number') Object.assign(n, { kind: 'number', n: l.n + 1 });
+  return n;
+}
+function exportLine(l) {
+  switch (l.kind) {
+    case 'bullet': return '• ' + l.text;
+    case 'check': return (l.checked ? '☑ ' : '☐ ') + l.text;
+    case 'number': return l.n + '. ' + l.text;
+    case 'divider': return '———';
+    default: return l.text;
+  }
+}
+function plainText(lines) {
+  const out = lines.map(exportLine);
+  while (out.length && !out[out.length - 1].trim()) out.pop();
+  return out.join('\n');
+}
+function starter() {
+  return [
+    L('Dump', 'plain', { bold: true }),
+    L('Tap a tiny line number to select lines', 'bullet'),
+    L('Hold ← or → in select mode for the trackpad', 'bullet'),
+    L('', 'divider'),
+    L('Shopping', 'plain', { bold: true, color: 'green' }),
+    L('Milk', 'check', { shape: 'circle', mark: 'fill' }),
+    L('Eggs', 'check', { shape: 'circle', mark: 'fill', checked: true }),
+    L('Bread', 'check', { shape: 'square', mark: 'tick' }),
+    L('', 'divider'),
+    L('Tap the number to change it', 'number', { n: 1 }),
+    L('')
+  ];
+}
+function read(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } }
+function write(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch { return false; }
+}
+
+const saved = read(KEY);
+const S = {
+  lines: (saved && Array.isArray(saved.lines) && saved.lines.length) ? saved.lines : starter(),
+  history: read(HKEY) || [],
+  focusedId: null, editing: false,
+  selMode: false, sel: new Set(), pad: false, colorsOpen: false, pmOpen: false,
+  head: null, anchor: null, resume: false, padPhase: 'start',
+  numId: null
+};
+
+/* ================= Lookup ================= */
+const idx = id => S.lines.findIndex(l => l.id === id);
+const line = id => S.lines.find(l => l.id === id);
+function targets() {
+  if (S.selMode && S.sel.size) return S.lines.filter(l => S.sel.has(l.id)).map(l => l.id);
+  const a = document.activeElement;                  // the line with the cursor, if any
+  if (a && a.classList && a.classList.contains('tx') && line(a.parentNode.dataset.id)) return [a.parentNode.dataset.id];
+  if (S.focusedId && line(S.focusedId)) return [S.focusedId];
+  const last = [...S.lines].reverse().find(l => l.kind !== 'divider');
+  return last ? [last.id] : [];
+}
+const cur = () => { const t = targets(); return t.length ? line(t[0]) : null; };
+const textTargets = () => targets().map(line).filter(l => l && l.kind !== 'divider');
+
+/* ================= Rendering ================= */
+const box = $('#lines');
+const rows = new Map();
+
+function makeRow(id) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.dataset.id = id;
+  row.innerHTML = '<div class="gut"></div><div class="mk"></div>' +
+    '<textarea class="tx" rows="1" enterkeyhint="enter" autocapitalize="sentences" autocomplete="off" spellcheck="true"></textarea>' +
+    '<div class="st"></div><div class="rule"></div>';
+  row._ta = row.children[2];
+  row._st = row.children[3];
+  return row;
+}
+
+function fit(ta) {
+  if (S.selMode) return;
+  ta.style.height = '0px';
+  ta.style.height = Math.max(32, ta.scrollHeight) + 'px';
+}
+
+function markerHTML(l) {
+  switch (l.kind) {
+    case 'bullet': return '<span class="bul"></span>';
+    case 'number': return `<span class="num">${l.n}.</span>`;
+    case 'check': return `<span class="cbx">${cbSVG(l.shape, l.mark, l.checked)}</span>`;
+    default: return '';
+  }
+}
+
+function staticHTML(l) {
+  const h = S.head;
+  if (!h || h.id !== l.id) return l.text ? esc(l.text) : '&#8203;';
+  const t = l.text;
+  const a = S.anchor;
+  if (a && a.id === l.id && a.off !== h.off) {
+    const lo = Math.min(a.off, h.off), hi = Math.max(a.off, h.off);
+    return esc(t.slice(0, lo)) + '<mark>' + esc(t.slice(lo, hi)) + '</mark>' + esc(t.slice(hi)) + (t ? '' : '&#8203;');
+  }
+  const o = Math.min(h.off, t.length);
+  return esc(t.slice(0, o)) + '<span class="caret"></span>' + esc(t.slice(o)) + '&#8203;';
+}
+
+function updateRow(row, l, i) {
+  const selected = S.selMode && S.sel.has(l.id);
+  const stKey = S.selMode ? staticHTML(l) : '';
+  const key = [i, l.text, l.kind, l.shape, l.mark, l.checked, l.n, l.bold, l.color, selected, S.selMode, stKey].join('\u0001');
+  if (row._key === key) return false;
+  row._key = key;
+  row.children[0].textContent = i + 1;
+  row.classList.toggle('divider', l.kind === 'divider');
+  row.classList.toggle('bold', !!l.bold);
+  row.classList.toggle('checked', l.kind === 'check' && l.checked);
+  row.classList.toggle('selected', selected);
+  row.classList.toggle('has-mk', isList(l));
+  row.classList.toggle('colored', l.color !== 'ink');
+  row.style.setProperty('--ink', `var(--c-${l.color})`);
+  const mk = markerHTML(l);
+  if (row._mk !== mk) { row.children[1].innerHTML = mk; row._mk = mk; }
+  let refit = false;
+  if (row._ta.value !== l.text) { row._ta.value = l.text; refit = true; }
+  if (S.selMode) row._st.innerHTML = stKey;
+  return refit || row._needsFit;
+}
+
+function renderLines() {
+  const ids = new Set(S.lines.map(l => l.id));
+  for (const [id, row] of rows) if (!ids.has(id)) { row.remove(); rows.delete(id); }
+  let prev = null;
+  const toFit = [];
+  S.lines.forEach((l, i) => {
+    let row = rows.get(l.id);
+    if (!row) { row = makeRow(l.id); rows.set(l.id, row); row._needsFit = true; }
+    if (updateRow(row, l, i)) toFit.push(row);
+    const want = prev ? prev.nextSibling : box.firstChild;
+    if (want !== row) box.insertBefore(row, want);
+    prev = row;
+  });
+  if (!S.selMode) for (const row of toFit) { fit(row._ta); row._needsFit = false; }
+}
+
+function fitAll() { for (const row of rows.values()) { fit(row._ta); row._needsFit = false; } }
+
+/* ---------- Chrome (bars + menus) ---------- */
+const colorsEl = $('#colors');
+COLORS.forEach(c => {
+  const b = document.createElement('button');
+  b.className = 'sw'; b.dataset.c = c;
+  b.style.setProperty('--c', `var(--c-${c})`);
+  b.setAttribute('aria-label', NAMES[c]);
+  colorsEl.appendChild(b);
+});
+$('#left').innerHTML = icon('left');
+$('#right').innerHTML = icon('right');
+$('#copy').innerHTML = icon('copy');
+$('#selall').innerHTML = icon('selall');
+$('#done').innerHTML = icon('check', 'style="stroke-width:2.6"');
+$('#colclose').innerHTML = icon('chevup');
+$('#seltext').innerHTML = icon('cursor');
+$('#divbtn').innerHTML = icon('minus');
+$('#kbhide').innerHTML = icon('kbd');
+$('#padclose').innerHTML = icon('x');
+$('#padarea').innerHTML = icon('hand');
+
+function kindIcon(l) {
+  if (!l) return icon('indent');
+  if (l.kind === 'bullet') return icon('bullets');
+  if (l.kind === 'number') return icon('numbers');
+  if (l.kind === 'check') return `<span style="width:22px;height:22px;display:block">${cbSVG(l.shape, 'tick', true)}</span>`;
+  return icon('indent');
+}
+
+/* point menu */
+function buildPointMenu() {
+  const c = cur();
+  const on = (k, sh, m) => c && c.kind === k && (!sh || (c.shape === sh && c.mark === m)) ? ' on' : '';
+  let h = '<div class="prow three">' +
+    `<button class="popt press${on('plain')}" data-k="plain">${icon('plain')}None</button>` +
+    `<button class="popt press${on('bullet')}" data-k="bullet">${icon('bullets')}Dots</button>` +
+    `<button class="popt press${on('number')}" data-k="number">${icon('numbers')}Numbers</button></div>`;
+  for (const shape of ['circle', 'square']) {
+    h += `<h6>${shape === 'circle' ? 'Round' : 'Square'} tick box</h6><div class="prow">`;
+    for (const m of MARKS) {
+      h += `<button class="popt press${on('check', shape, m)}" data-k="check" data-shape="${shape}" data-mark="${m}">` +
+        `<span style="width:20px;height:20px;display:block">${cbSVG(shape, m, true)}</span>${MARK_NAMES[m]}</button>`;
+    }
+    h += '</div>';
+  }
+  $('#pointmenu').innerHTML = h;
+}
+
+/* selection tiles */
+const TILES = [
+  { id: 'bold', label: 'Bold', glyph: 'B', act: () => toggleBold(), on: () => allBold() },
+  { id: 'plain', label: 'Plain', ic: 'plain', act: () => applyKind('plain'), on: () => firstKind() === 'plain' },
+  { id: 'bullet', label: 'Dots', ic: 'bullets', act: () => applyKind('bullet'), on: () => firstKind() === 'bullet' },
+  { id: 'number', label: 'Numbers', ic: 'numbers', act: () => applyNumbers(), on: () => firstKind() === 'number' },
+  { id: 'setnum', label: 'Set #', ic: 'hash', act: () => openNumber() },
+  { id: 'round', label: 'Round box', ic: 'circle', act: () => applyCheck('circle', curMark() || 'fill'), on: () => { const c = cur(); return c && c.kind === 'check' && c.shape === 'circle'; } },
+  { id: 'square', label: 'Square box', ic: 'square', act: () => applyCheck('square', curMark() || 'tick'), on: () => { const c = cur(); return c && c.kind === 'check' && c.shape === 'square'; } },
+  { id: 'mark', label: 'Tick style', act: () => cycleMark(), dis: () => !hasChecks(), html: () => `<span style="width:20px;height:20px;display:block">${cbSVG('square', curMark() || 'tick', true)}</span>` },
+  { id: 'tick', label: 'Tick/untick', ic: 'tickbox', act: () => toggleCheckedTargets(), dis: () => !hasChecks() },
+  { id: 'renum', label: 'Renumber', ic: 'renum', act: () => renumber() },
+  { id: 'div', label: 'Line break', ic: 'minus', act: () => insertDivider() },
+  { id: 'above', label: 'Line above', ic: 'above', act: () => insertLine(true) },
+  { id: 'below', label: 'Line below', ic: 'below', act: () => insertLine(false) },
+  { id: 'up', label: 'Move up', ic: 'up', act: () => move(true) },
+  { id: 'down', label: 'Move down', ic: 'down', act: () => move(false) },
+  { id: 'dup', label: 'Duplicate', ic: 'dup', act: () => duplicate() },
+  { id: 'paste', label: 'Paste below', ic: 'paste', act: () => pasteBelow() },
+  { id: 'copy2', label: 'Copy', ic: 'copy', act: () => copyTargets() },
+  { id: 'hist', label: 'History', ic: 'clock', act: () => openHistory() },
+  { id: 'del', label: 'Delete', ic: 'trash', act: () => deleteTargets(), danger: true }
+];
+const tilesEl = $('#tiles');
+TILES.forEach(t => {
+  const b = document.createElement('button');
+  b.className = 'tile press' + (t.danger ? ' danger' : '');
+  b.dataset.t = t.id;
+  t.el = b;
+  tilesEl.appendChild(b);
+});
+
+const firstKind = () => { const c = cur(); return c ? c.kind : null; };
+const allBold = () => { const ls = textTargets(); return ls.length > 0 && ls.every(l => l.bold); };
+const hasChecks = () => textTargets().some(l => l.kind === 'check');
+const curMark = () => { const c = textTargets().find(l => l.kind === 'check'); return c ? c.mark : null; };
+
+function charSel() {
+  const h = S.head, a = S.anchor;
+  if (!S.selMode || !h || !a || a.id !== h.id || a.off === h.off || S.sel.size > 1) return null;
+  return { id: h.id, lo: Math.min(a.off, h.off), hi: Math.max(a.off, h.off) };
+}
+
+function renderChrome() {
+  const b = document.body.classList;
+  b.toggle('sel', S.selMode);
+  b.toggle('colors-open', S.selMode && S.colorsOpen);
+  b.toggle('pad', S.selMode && S.pad);
+  b.toggle('editing', S.editing && !S.selMode);
+  b.toggle('pm-open', S.pmOpen && !S.selMode);
+  const c = cur();
+  const color = c ? c.color : 'ink';
+  for (const sw of colorsEl.querySelectorAll('.sw')) sw.classList.toggle('on', sw.dataset.c === color);
+  $('#coldot').style.setProperty('--dot', `var(--m-${color})`);
+  $('#bold').classList.toggle('on', allBold());
+  $('#pointbtn').innerHTML = kindIcon(c);
+  if (S.pmOpen) buildPointMenu();
+  if (S.selMode) {
+    const cs = charSel();
+    $('#seltitle').textContent = cs ? `${cs.hi - cs.lo} character${cs.hi - cs.lo === 1 ? '' : 's'}` : (S.sel.size === 1 ? '1 line' : `${S.sel.size} lines`);
+    $('#padtoggle').innerHTML = icon('pad') + 'Trackpad';
+    for (const t of TILES) {
+      const inner = t.html ? t.html() : (t.glyph ? `<span class="glyph">${t.glyph}</span>` : icon(t.ic));
+      const html = inner + `<span>${t.label}</span>`;
+      if (t.el._h !== html) { t.el.innerHTML = html; t.el._h = html; }
+      t.el.classList.toggle('on', !!(t.on && t.on()));
+      t.el.disabled = !!(t.dis && t.dis());
+    }
+    const pad = $('#pad');
+    pad.classList.toggle('end', S.padPhase === 'end');
+    $('#padlabel').innerHTML = S.padPhase === 'end' ? '<b>2</b><span>Drag to select end</span>' : '<b>1</b><span>Drag to place start</span>';
+  }
+}
+
+function render() { renderLines(); renderChrome(); }
+
+/* ================= Saving + history ================= */
+let saveT = null, histT = null;
+function changed(structural) {
+  render();
+  clearTimeout(saveT);
+  saveT = setTimeout(saveNow, 300);
+  clearTimeout(histT);
+  histT = setTimeout(() => commitHistory('Edit'), structural ? 700 : 2500);
+  if (typeof scheduleSync === 'function') scheduleSync(structural ? 2500 : 4000);
+}
+function saveNow() {
+  saveT = null;
+  write(KEY, { lines: S.lines, modified: Date.now() });
+}
+function diff(prev, next) {
+  const old = new Map(prev.map(l => [l.id, l]));
+  const ids = new Set(next.map(l => l.id));
+  let added = 0, changedN = 0, preview = null;
+  for (const l of next) {
+    const o = old.get(l.id);
+    if (!o) { added++; if (preview === null) preview = '+ ' + exportLine(l); }
+    else if (JSON.stringify(o) !== JSON.stringify(l)) { changedN++; if (preview === null) preview = exportLine(l); }
+  }
+  const removed = prev.filter(l => !ids.has(l.id));
+  if (preview === null && removed.length) preview = '− ' + exportLine(removed[0]);
+  return { added, removed: removed.length, changed: changedN, preview: (preview || '').trim() };
+}
+function commitHistory(label) {
+  histT = null;
+  const last = S.history[S.history.length - 1];
+  const base = last ? last.lines : [];
+  if (last && JSON.stringify(base) === JSON.stringify(S.lines)) return;
+  S.history.push(Object.assign({ id: uid(), date: Date.now(), label, lines: clone(S.lines) }, diff(base, S.lines)));
+  if (S.history.length > HLIMIT) S.history.splice(0, S.history.length - HLIMIT);
+  while (!write(HKEY, S.history) && S.history.length > 10) S.history.splice(0, Math.ceil(S.history.length / 3));
+}
+function flush() {
+  if (saveT) { clearTimeout(saveT); saveNow(); }
+  if (histT) { clearTimeout(histT); commitHistory('Edit'); }
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+window.addEventListener('pagehide', flush);
+window.addEventListener('storage', e => {
+  if (e.key === KEY && e.newValue) {
+    try { S.lines = JSON.parse(e.newValue).lines; S.history = read(HKEY) || S.history; render(); fitAll(); } catch {}
+  }
+});
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+/* ================= Focus helpers ================= */
+function focusLine(id, off, len = 0) {
+  const row = rows.get(id);
+  if (!row) return;
+  const ta = row._ta;
+  ta.focus({ preventScroll: true });
+  const o = Math.min(Math.max(off, 0), ta.value.length);
+  try { ta.setSelectionRange(o, Math.min(o + len, ta.value.length)); } catch {}
+  ensureVisible(row);
+}
+function ensureVisible(row) {
+  const r = row.getBoundingClientRect();
+  const vv = window.visualViewport;
+  const top = (vv ? vv.offsetTop : 0) + 70;
+  const bottom = (vv ? vv.offsetTop + vv.height : innerHeight) - (S.selMode ? 330 : 80);
+  if (r.top < top) window.scrollBy({ top: r.top - top - 10 });
+  else if (r.bottom > bottom) window.scrollBy({ top: r.bottom - bottom + 10 });
+}
+function blurAll() { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
+
+/* ================= Typing ================= */
+function split(id, s, e) {
+  const i = idx(id); if (i < 0) return;
+  const l = S.lines[i];
+  const before = l.text.slice(0, s), after = l.text.slice(e);
+  if (!before && !after && isList(l)) { l.kind = 'plain'; changed(true); return; }
+  l.text = before;
+  const n = continuation(l);
+  n.text = after;
+  S.lines.splice(i + 1, 0, n);
+  changed(true);
+  focusLine(n.id, 0);
+}
+function pasteMulti(id, s, e, text) {
+  const i = idx(id); if (i < 0) return;
+  const l = S.lines[i];
+  const before = l.text.slice(0, s), after = l.text.slice(e);
+  const parts = text.replace(/\r\n?/g, '\n').split('\n');
+  l.text = before + parts.shift();
+  let prev = l, at = i + 1;
+  for (const p of parts) {
+    const n = continuation(prev); n.text = p;
+    S.lines.splice(at++, 0, n); prev = n;
+  }
+  const caret = prev.text.length;
+  prev.text += after;
+  changed(true);
+  focusLine(prev.id, caret);
+}
+function backspaceAtStart(id) {
+  const i = idx(id); if (i < 0) return;
+  const l = S.lines[i];
+  if (l.kind !== 'plain') { l.kind = 'plain'; changed(true); return; }
+  if (i === 0) return;
+  const p = S.lines[i - 1];
+  if (p.kind === 'divider') { S.lines.splice(i - 1, 1); changed(true); focusLine(id, 0); return; }
+  const off = p.text.length;
+  focusLine(p.id, off);            // move focus first so the keyboard stays up
+  p.text += l.text;
+  S.lines.splice(i, 1);
+  changed(true);
+  focusLine(p.id, off);
+}
+
+box.addEventListener('input', e => {
+  const ta = e.target; if (!ta.classList.contains('tx')) return;
+  const l = line(ta.parentNode.dataset.id); if (!l) return;
+  if (ta.value.includes('\n')) {             // e.g. dictation or autofill inserted a newline
+    const v = ta.value, pos = v.indexOf('\n');
+    l.text = v.slice(0, pos) + v.slice(pos + 1).replace(/\n/g, ' ');
+    split(l.id, pos, pos);
+    return;
+  }
+  l.text = ta.value;
+  fit(ta);
+  changed(false);
+});
+box.addEventListener('keydown', e => {
+  const ta = e.target; if (!ta.classList.contains('tx') || e.isComposing) return;
+  const id = ta.parentNode.dataset.id;
+  if (e.key === 'Enter') { e.preventDefault(); split(id, ta.selectionStart, ta.selectionEnd); }
+  else if (e.key === 'Backspace' && ta.selectionStart === 0 && ta.selectionEnd === 0) { e.preventDefault(); backspaceAtStart(id); }
+});
+box.addEventListener('paste', e => {
+  const ta = e.target; if (!ta.classList.contains('tx')) return;
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  if (text && /[\r\n]/.test(text)) { e.preventDefault(); pasteMulti(ta.parentNode.dataset.id, ta.selectionStart, ta.selectionEnd, text); }
+});
+box.addEventListener('focusin', e => {
+  if (!e.target.classList.contains('tx')) return;
+  S.focusedId = e.target.parentNode.dataset.id;
+  S.editing = true;
+  renderChrome();
+});
+box.addEventListener('focusout', () => {
+  setTimeout(() => {
+    const a = document.activeElement;
+    S.editing = !!(a && a.classList && a.classList.contains('tx'));
+    renderChrome();
+  }, 0);
+});
+// Keep the keyboard up when tapping points / line numbers.
+box.addEventListener('mousedown', e => { if (e.target.closest('.mk, .gut, .rule')) e.preventDefault(); });
+box.addEventListener('click', e => {
+  const row = e.target.closest('.row'); if (!row) return;
+  const id = row.dataset.id, l = line(id); if (!l) return;
+  if (e.target.closest('.gut') || e.target.closest('.rule')) { toggleLineSelection(id, e.shiftKey); return; }
+  if (e.target.closest('.mk')) {
+    if (l.kind === 'check') { l.checked = !l.checked; changed(true); }
+    else if (l.kind === 'number') openNumber(id);
+    return;
+  }
+  if (S.selMode && e.target.closest('.st')) tapStatic(e, row, l);
+});
+$('#tail').addEventListener('click', () => {
+  if (S.selMode) { exitSelection(false); return; }
+  startNewLineAtEnd();
+});
+function startNewLineAtEnd() {
+  const last = S.lines[S.lines.length - 1];
+  if (last && !last.text && last.kind !== 'divider') { focusLine(last.id, 0); return; }
+  const tmpl = [...S.lines].reverse().find(l => l.kind !== 'divider');
+  const n = (last && last.kind === 'divider') || !tmpl ? L('', 'plain', { color: tmpl ? tmpl.color : 'ink' }) : continuation(tmpl);
+  n.bold = false;
+  S.lines.push(n);
+  changed(true);
+  focusLine(n.id, 0);
+}
+
+/* ================= Formatting ================= */
+function mutate(ids, fn, skipDiv = true) {
+  let touched = false;
+  for (const id of ids) { const l = line(id); if (!l || (skipDiv && l.kind === 'divider')) continue; fn(l); touched = true; }
+  if (touched) changed(true);
+}
+function setColor(c) { mutate(targets(), l => { l.color = c; }, false); }
+function toggleBold() { const b = !allBold(); mutate(targets(), l => { l.bold = b; }); }
+function applyKind(k) { mutate(targets(), l => { l.kind = k; }); }
+function applyCheck(shape, mark) { mutate(targets(), l => { const was = l.kind === 'check' && l.checked; Object.assign(l, { kind: 'check', shape, mark, checked: was }); }); }
+function cycleMark() { const m = MARKS[(MARKS.indexOf(curMark() || 'tick') + 1) % MARKS.length]; mutate(targets(), l => { if (l.kind === 'check') l.mark = m; }); }
+function applyNumbers() {
+  const ls = textTargets(); if (!ls.length) return;
+  const i = idx(ls[0].id);
+  let n = (i > 0 && S.lines[i - 1].kind === 'number') ? S.lines[i - 1].n + 1 : 1;
+  mutate(ls.map(l => l.id), l => { l.kind = 'number'; l.n = n++; });
+}
+function renumber() {
+  const ls = textTargets(); if (!ls.length) return;
+  let n = ls[0].kind === 'number' ? ls[0].n : 1;
+  mutate(ls.map(l => l.id), l => { l.kind = 'number'; l.n = n++; });
+}
+function toggleCheckedTargets() {
+  const cs = textTargets().filter(l => l.kind === 'check');
+  const all = cs.length && cs.every(l => l.checked);
+  mutate(cs.map(l => l.id), l => { l.checked = !all; });
+}
+
+/* ================= Structure ================= */
+function insertDivider() {
+  const t = targets(); if (!t.length) return;
+  const i = idx(t[t.length - 1]);
+  if (!S.selMode) {
+    let di = i + 1;
+    const l = S.lines[i];
+    if (!l.text && l.kind !== 'divider') { Object.assign(l, { kind: 'divider', bold: false }); di = i; }
+    else S.lines.splice(di, 0, L('', 'divider'));
+    const n = L('', 'plain', { color: l.color });
+    S.lines.splice(di + 1, 0, n);
+    changed(true);
+    focusLine(n.id, 0);
+  } else {
+    S.lines.splice(i + 1, 0, L('', 'divider'));
+    changed(true);
+  }
+}
+function insertLine(above) {
+  const t = targets(); if (!t.length) return;
+  const i = idx(above ? t[0] : t[t.length - 1]);
+  const tmpl = S.lines[i];
+  const n = tmpl.kind === 'divider' ? L('') : (above ? Object.assign(clone(tmpl), { id: uid(), text: '', checked: false }) : continuation(tmpl));
+  S.lines.splice(above ? i : i + 1, 0, n);
+  if (S.selMode) { S.sel = new Set([n.id]); S.head = { id: n.id, off: 0 }; S.anchor = null; }
+  changed(true);
+}
+function move(up) {
+  const ix = targets().map(idx).filter(i => i >= 0).sort((a, b) => a - b);
+  if (!ix.length) return;
+  if (up) { if (ix[0] === 0) return; for (const i of ix) [S.lines[i - 1], S.lines[i]] = [S.lines[i], S.lines[i - 1]]; }
+  else { if (ix[ix.length - 1] === S.lines.length - 1) return; for (const i of ix.reverse()) [S.lines[i + 1], S.lines[i]] = [S.lines[i], S.lines[i + 1]]; }
+  changed(true);
+  const r = rows.get(targets()[0]); if (r) ensureVisible(r);
+}
+function duplicate() {
+  const ix = targets().map(idx).filter(i => i >= 0).sort((a, b) => a - b);
+  if (!ix.length) return;
+  const copies = ix.map(i => Object.assign(clone(S.lines[i]), { id: uid() }));
+  S.lines.splice(ix[ix.length - 1] + 1, 0, ...copies);
+  if (S.selMode) S.sel = new Set(copies.map(c => c.id));
+  changed(true);
+  toast(copies.length === 1 ? 'Duplicated' : `Duplicated ${copies.length} lines`);
+}
+function deleteTargets() {
+  const cs = charSel();
+  if (cs) {
+    const l = line(cs.id);
+    l.text = l.text.slice(0, cs.lo) + l.text.slice(cs.hi);
+    S.head = { id: cs.id, off: cs.lo }; S.anchor = null; S.padPhase = 'start';
+    changed(true);
+    return;
+  }
+  const doomed = new Set(targets()); if (!doomed.size) return;
+  S.lines = S.lines.filter(l => !doomed.has(l.id));
+  if (!S.lines.length) S.lines = [L('')];
+  toast(doomed.size === 1 ? 'Line deleted' : `${doomed.size} lines deleted`);
+  if (S.selMode) exitSelection(false);
+  changed(true);
+}
+
+/* ================= Clipboard ================= */
+function copyText(text) {
+  const fallback = () => {
+    const t = document.createElement('textarea');
+    t.value = text; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+    document.body.appendChild(t); t.select(); t.setSelectionRange(0, text.length);
+    let ok = false; try { ok = document.execCommand('copy'); } catch {}
+    t.remove();
+    toast(ok ? 'Copied' : 'Could not copy');
+  };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(() => toast('Copied'), fallback);
+  else fallback();
+}
+function copyTargets() {
+  const cs = charSel();
+  if (cs) { copyText(line(cs.id).text.slice(cs.lo, cs.hi)); return; }
+  copyText(plainText(targets().map(line)));
+}
+function pasteBelow() {
+  if (!navigator.clipboard || !navigator.clipboard.readText) { toast('Paste: tap Done, then long-press a line'); return; }
+  navigator.clipboard.readText().then(text => {
+    if (!text) { toast('Clipboard is empty'); return; }
+    const t = targets(); const i = t.length ? idx(t[t.length - 1]) : S.lines.length - 1;
+    const color = S.lines[i] ? S.lines[i].color : 'ink';
+    const ls = text.replace(/\r\n?/g, '\n').split('\n').map(p => L(p, 'plain', { color }));
+    S.lines.splice(i + 1, 0, ...ls);
+    if (S.selMode) S.sel = new Set(ls.map(l => l.id));
+    changed(true);
+    toast(`Pasted ${ls.length} line${ls.length === 1 ? '' : 's'}`);
+  }, () => toast('Paste: tap Done, then long-press a line'));
+}
+
+/* ================= Toast ================= */
+let toastT = null;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1300);
+}
+
+/* ================= Selection mode ================= */
+function toggleLineSelection(id, shift) {
+  const from = S.lastGut;
+  S.lastGut = id;
+  if (shift && from && line(from)) {             // laptop: shift-click a line number to select a range
+    const a = idx(from), b = idx(id);
+    const ids = S.lines.slice(Math.min(a, b), Math.max(a, b) + 1).map(l => l.id);
+    if (!S.selMode) enterSelection(ids, false);
+    else { ids.forEach(x => S.sel.add(x)); render(); }
+    return;
+  }
+  if (!S.selMode) { enterSelection([id], false); return; }
+  if (S.sel.has(id)) S.sel.delete(id); else S.sel.add(id);
+  if (!S.sel.size) { exitSelection(); return; }
+  const l = line(id);
+  if (S.sel.has(id) && l.kind !== 'divider') { S.head = { id, off: l.text.length }; S.anchor = null; S.padPhase = 'start'; }
+  render();
+}
+function enterSelection(ids, pad) {
+  const a = document.activeElement;
+  S.resume = !!(a && a.classList && a.classList.contains('tx'));
+  const first = line(ids[0]);
+  let off = first ? first.text.length : 0;
+  if (S.resume && a.parentNode.dataset.id === ids[0]) off = a.selectionEnd;
+  blurAll();
+  Object.assign(S, { selMode: true, sel: new Set(ids), pad, colorsOpen: false, pmOpen: false, anchor: null, padPhase: 'start', editing: false });
+  S.head = first && first.kind !== 'divider' ? { id: first.id, off } : null;
+  render();
+}
+function exitSelection(resume) {
+  const shouldResume = resume === undefined ? S.resume : resume;
+  const h = S.head;
+  Object.assign(S, { selMode: false, sel: new Set(), pad: false, colorsOpen: false, anchor: null, padPhase: 'start' });
+  render();
+  fitAll();
+  if (shouldResume && h && line(h.id)) focusLine(h.id, h.off);
+}
+function tapStatic(e, row, l) {
+  let off = l.text.length;
+  const st = row._st;
+  let r = null;
+  if (document.caretRangeFromPoint) r = document.caretRangeFromPoint(e.clientX, e.clientY);
+  else if (document.caretPositionFromPoint) { const p = document.caretPositionFromPoint(e.clientX, e.clientY); if (p) r = { startContainer: p.offsetNode, startOffset: p.offset }; }
+  if (r && st.contains(r.startContainer)) off = Math.min(offsetIn(st, r.startContainer, r.startOffset), l.text.length);
+  S.head = { id: l.id, off }; S.anchor = null; S.padPhase = 'start';
+  S.sel.add(l.id);
+  render();
+}
+// Character offset (ignoring zero-width spaces) of a DOM position inside `root`.
+function offsetIn(root, node, offset) {
+  const clean = s => s.replace(/​/g, '').length;
+  let total = 0;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  if (node.nodeType === 3) {
+    let n;
+    while ((n = w.nextNode()) && n !== node) total += clean(n.textContent);
+    return total + clean(node.textContent.slice(0, offset));
+  }
+  const stop = node.childNodes[offset] || null;
+  let n;
+  while ((n = w.nextNode())) {
+    if (stop && (stop === n || (stop.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING) || stop.contains(n))) break;
+    total += clean(n.textContent);
+  }
+  return total;
+}
+
+/* ---------- Caret / trackpad ---------- */
+function nextText(i, step) {
+  for (let j = i + step; j >= 0 && j < S.lines.length; j += step) if (S.lines[j].kind !== 'divider') return j;
+  return -1;
+}
+function caret() {
+  if (S.head && line(S.head.id)) { const l = line(S.head.id); return { id: l.id, off: Math.min(S.head.off, l.text.length) }; }
+  const c = cur();
+  const l = c && c.kind !== 'divider' ? c : [...S.lines].reverse().find(x => x.kind !== 'divider');
+  return l ? { id: l.id, off: l.text.length } : null;
+}
+function moveCaret(chars, dl, extend) {
+  let h = caret(); if (!h) return;
+  let i = idx(h.id);
+  if (dl) {
+    const step = dl > 0 ? 1 : -1;
+    for (let k = 0; k < Math.abs(dl); k++) { const j = nextText(i, step); if (j < 0) break; i = j; }
+    h = { id: S.lines[i].id, off: Math.min(h.off, S.lines[i].text.length) };
+  }
+  if (chars) {
+    let off = h.off + chars;
+    const len = S.lines[i].text.length;
+    if (off < 0) { const j = nextText(i, -1); if (j >= 0) { i = j; off = S.lines[j].text.length; } else off = 0; }
+    else if (off > len) { const j = nextText(i, 1); if (j >= 0) { i = j; off = 0; } else off = len; }
+    h = { id: S.lines[i].id, off };
+  }
+  S.head = h;
+  if (extend && S.anchor) {
+    const a = S.anchor;
+    if (a.id === h.id) S.sel = new Set([a.id]);
+    else { const ia = idx(a.id), ih = idx(h.id); S.sel = new Set(S.lines.slice(Math.min(ia, ih), Math.max(ia, ih) + 1).map(l => l.id)); }
+  } else {
+    S.anchor = null;
+    if (S.selMode) S.sel = new Set([h.id]);
+  }
+  render();
+  const row = rows.get(h.id); if (row) ensureVisible(row);
+}
+function openPad() { S.pad = true; S.anchor = null; S.padPhase = 'start'; render(); }
+
+/* arrows: tap = one character, hold = trackpad */
+for (const [sel, step] of [['#left', -1], ['#right', 1]]) {
+  const el = $(sel);
+  let timer = null, long = false, down = false;
+  el.addEventListener('pointerdown', () => { down = true; long = false; timer = setTimeout(() => { long = true; openPad(); }, 350); });
+  const cancel = () => { down = false; clearTimeout(timer); };
+  el.addEventListener('pointerleave', cancel);
+  el.addEventListener('pointercancel', cancel);
+  el.addEventListener('pointerup', () => { const was = down; cancel(); if (was && !long) moveCaret(step, 0, false); });
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+/* trackpad surface */
+(() => {
+  const area = $('#padarea');
+  let last = null, ax = 0, ay = 0;
+  const CH = 9, LN = 26;
+  area.addEventListener('pointerdown', e => {
+    try { area.setPointerCapture(e.pointerId); } catch {}
+    last = { x: e.clientX, y: e.clientY }; ax = ay = 0;
+    area.classList.add('touch');
+    if (S.padPhase === 'end' && !S.anchor) S.anchor = caret();
+  });
+  area.addEventListener('pointermove', e => {
+    if (!last) return;
+    ax += e.clientX - last.x; ay += e.clientY - last.y; last = { x: e.clientX, y: e.clientY };
+    let c = 0, r = 0;
+    while (ax >= CH) { c++; ax -= CH; } while (ax <= -CH) { c--; ax += CH; }
+    while (ay >= LN) { r++; ay -= LN; } while (ay <= -LN) { r--; ay += LN; }
+    if (c || r) moveCaret(c, r, S.padPhase === 'end');
+  });
+  const end = () => {
+    if (!last) return;
+    last = null; area.classList.remove('touch');
+    if (S.padPhase === 'start') { S.anchor = caret(); S.head = S.anchor && { ...S.anchor }; S.padPhase = 'end'; renderChrome(); }
+  };
+  area.addEventListener('pointerup', end);
+  area.addEventListener('pointercancel', end);
+})();
+$('#padreset').addEventListener('click', () => { S.anchor = null; S.padPhase = 'start'; render(); });
+$('#padclose').addEventListener('click', () => { S.pad = false; renderChrome(); });
+$('#padtoggle').addEventListener('click', () => { S.pad = !S.pad; if (S.pad) { S.anchor = null; S.padPhase = 'start'; } render(); });
+
+/* ================= Bars wiring ================= */
+// Buttons should not steal focus from the line being typed (keeps the keyboard up).
+for (const el of [$('#top'), $('#bottom'), $('#pointmenu'), $('#selwrap')]) el.addEventListener('mousedown', e => e.preventDefault());
+
+colorsEl.addEventListener('click', e => {
+  if (S.selMode && !S.colorsOpen) { S.colorsOpen = true; renderChrome(); return; }
+  const sw = e.target.closest('.sw'); if (sw) setColor(sw.dataset.c);
+});
+$('#colclose').addEventListener('click', () => { S.colorsOpen = false; renderChrome(); });
+$('#copy').addEventListener('click', copyTargets);
+$('#selall').addEventListener('click', () => { S.sel = new Set(S.lines.map(l => l.id)); S.anchor = null; render(); });
+$('#done').addEventListener('click', () => exitSelection());
+$('#seltext').addEventListener('click', () => { const t = targets(); if (t.length) enterSelection([t[0]], true); });
+$('#bold').addEventListener('click', toggleBold);
+$('#divbtn').addEventListener('click', insertDivider);
+$('#kbhide').addEventListener('click', blurAll);
+$('#pointbtn').addEventListener('click', () => { S.pmOpen = !S.pmOpen; renderChrome(); });
+$('#pointmenu').addEventListener('click', e => {
+  const b = e.target.closest('.popt'); if (!b) return;
+  const k = b.dataset.k;
+  if (k === 'check') applyCheck(b.dataset.shape, b.dataset.mark);
+  else if (k === 'number') applyNumbers();
+  else applyKind(k);
+  S.pmOpen = false; renderChrome();
+});
+document.addEventListener('click', e => {
+  if (S.pmOpen && !e.target.closest('#pointmenu, #pointbtn')) { S.pmOpen = false; renderChrome(); }
+}, true);
+tilesEl.addEventListener('click', e => {
+  const b = e.target.closest('.tile'); if (!b || b.disabled) return;
+  const t = TILES.find(x => x.id === b.dataset.t); if (t) t.act();
+});
+
+/* ================= Number dialog ================= */
+function openNumber(id) {
+  const tid = id || (textTargets()[0] || {}).id; if (!tid) return;
+  const l = line(tid);
+  if (l.kind !== 'number') { l.kind = 'number'; l.n = 1; changed(true); }
+  S.numId = tid;
+  const inp = $('#numin');
+  inp.value = String(l.n);
+  $('#numdlg').classList.add('show');
+  inp.focus(); inp.select();
+}
+function closeNumber(apply) {
+  if (apply && S.numId) {
+    const n = parseInt($('#numin').value.trim(), 10);
+    if (!isNaN(n)) mutate([S.numId], l => { l.n = n; });
+  }
+  S.numId = null;
+  $('#numin').blur();
+  $('#numdlg').classList.remove('show');
+}
+$('#numset').addEventListener('click', () => closeNumber(true));
+$('#numcancel').addEventListener('click', () => closeNumber(false));
+$('#numin').addEventListener('keydown', e => { if (e.key === 'Enter') closeNumber(true); if (e.key === 'Escape') closeNumber(false); });
+$('#numdlg').addEventListener('click', e => { if (e.target.id === 'numdlg') closeNumber(false); });
+
+/* ================= History sheet ================= */
+const fmt = t => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+function openHistory() {
+  flush();
+  blurAll();
+  $('#hist').classList.add('show');
+  showHistoryList();
+}
+function closeHistory() { $('#hist').classList.remove('show'); }
+function showHistoryList() {
+  $('#htitle').textContent = 'Edit History';
+  $('#hback').textContent = '';
+  const curId = S.history.length ? S.history[S.history.length - 1].id : null;
+  let h = '<div class="backup"><button id="bexp">Export backup</button><button id="bimp">Import backup</button><button id="btxt">Copy as text</button></div>';
+  if (!S.history.length) h += '<p class="note">No history yet. Edits are saved here as you type.</p>';
+  for (const e of [...S.history].reverse()) {
+    h += `<button class="hrow${e.id === curId ? ' cur' : ''}" data-h="${e.id}"><span class="hdot"></span><span class="hmain">` +
+      `<span class="hlabel">${esc(e.label)}${e.id === curId ? '<span class="hcur">Current</span>' : ''}</span>` +
+      (e.preview ? `<div class="hprev">${esc(e.preview)}</div>` : '') +
+      `<div class="hdate">${fmt(e.date)}</div></span><span class="hstat">` +
+      (e.added ? `<span class="add">+${e.added}</span>` : '') + (e.removed ? `<span class="rem">−${e.removed}</span>` : '') +
+      (e.changed ? `<span class="chg">~${e.changed}</span>` : '') + '</span></button>';
+  }
+  h += '<p class="note">Everything is stored only in this browser on this device. Safari can clear data for pages you haven\'t opened in a while, so export a backup now and then.</p>';
+  $('#hbody').innerHTML = h;
+  $('#hbody').scrollTop = 0;
+}
+function showHistoryEntry(e) {
+  $('#htitle').textContent = fmt(e.date);
+  $('#hback').textContent = '‹ Back';
+  let h = '<div class="hactions"><button class="primary" id="hrestore">Restore this version</button><button id="hcopy">Copy text</button></div>';
+  for (const l of e.lines) {
+    if (l.kind === 'divider') { h += `<div class="prevrule" style="${l.color !== 'ink' ? `background:var(--c-${l.color})` : ''}"></div>`; continue; }
+    h += `<div class="prevline${l.bold ? ' bold' : ''}${l.kind === 'check' && l.checked ? ' checked' : ''}" style="--ink:var(--c-${l.color})">` +
+      (isList(l) ? `<span class="mk">${markerHTML(l)}</span>` : '') + `<span class="t">${esc(l.text) || '&nbsp;'}</span></div>`;
+  }
+  $('#hbody').innerHTML = h;
+  $('#hbody').scrollTop = 0;
+  $('#hrestore').onclick = () => restore(e);
+  $('#hcopy').onclick = () => copyText(plainText(e.lines));
+}
+function restore(e) {
+  flush();
+  if (S.selMode) exitSelection(false);
+  S.lines = clone(e.lines);
+  if (!S.lines.length) S.lines = [L('')];
+  render(); fitAll(); saveNow();
+  commitHistory('Restored ' + fmt(e.date));
+  closeHistory();
+  toast('Version restored');
+}
+$('#hdone').addEventListener('click', closeHistory);
+$('#hback').addEventListener('click', () => { if ($('#hback').textContent) showHistoryList(); });
+$('#hist').addEventListener('click', e => { if (e.target.id === 'hist') closeHistory(); });
+$('#hbody').addEventListener('click', e => {
+  const r = e.target.closest('.hrow');
+  if (r) { const en = S.history.find(x => x.id === r.dataset.h); if (en) showHistoryEntry(en); return; }
+  if (e.target.id === 'bexp') exportBackup();
+  if (e.target.id === 'bimp') $('#importfile').click();
+  if (e.target.id === 'btxt') copyText(plainText(S.lines));
+});
+function exportBackup() {
+  const data = JSON.stringify({ app: 'dump', version: 1, exported: Date.now(), lines: S.lines, history: S.history });
+  const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `dump-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+$('#importfile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  f.text().then(t => {
+    const d = JSON.parse(t);
+    if (!d || !Array.isArray(d.lines)) throw new Error('bad');
+    flush();
+    S.lines = d.lines.length ? d.lines : [L('')];
+    if (Array.isArray(d.history)) { S.history = d.history; write(HKEY, S.history); }
+    render(); fitAll(); saveNow(); commitHistory('Imported backup');
+    closeHistory(); toast('Backup imported');
+  }).catch(() => toast('That file is not a Dump backup'));
+  e.target.value = '';
+});
+
+/* ================= Sync (end-to-end encrypted, works offline) ================= */
+// Notes are encrypted on this device with a key derived from your passphrase. The server only
+// stores the scrambled blob. Each device keeps working offline; when it reconnects it pulls the
+// latest version, merges line-by-line with its own offline edits, and pushes the result.
+const SKEY = 'dump.sync.v1';
+let SY = read(SKEY);                 // { url, id, key, rev, base, last, err }
+let syncKey = null, syncing = false, syncAgain = false, syncT = null, pending = null;
+S.syncState = SY ? 'busy' : 'off';
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const saveSY = () => { if (SY) write(SKEY, SY); };
+
+function b64(bytes) {
+  bytes = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const cryptoOK = () => !!(window.crypto && crypto.subtle && window.isSecureContext);
+
+async function deriveSecrets(pass) {
+  const enc = new TextEncoder();
+  const material = await crypto.subtle.importKey('raw', enc.encode(pass.normalize('NFKC')), 'PBKDF2', false, ['deriveBits']);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode('dump-sync-v1'), iterations: 310000 }, material, 512));
+  return { key: b64(bits.slice(0, 32)), id: [...bits.slice(32)].map(b => b.toString(16).padStart(2, '0')).join('') };
+}
+async function aesKey() {
+  if (!syncKey) syncKey = await crypto.subtle.importKey('raw', unb64(SY.key), 'AES-GCM', false, ['encrypt', 'decrypt']);
+  return syncKey;
+}
+async function seal(obj) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await aesKey(), new TextEncoder().encode(JSON.stringify(obj)));
+  return 'v1.' + b64(iv) + '.' + b64(ct);
+}
+async function unseal(str) {
+  const [v, iv, ct] = String(str).split('.');
+  if (v !== 'v1') throw new Error('Unknown data format');
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await aesKey(), unb64(ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+async function api(method, body, cfg = SY) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(cfg.url + '/v1/note', {
+      method, cache: 'no-store', signal: ctrl.signal,
+      headers: Object.assign({ 'X-Dump-Id': cfg.id }, body ? { 'Content-Type': 'application/json' } : {}),
+      body: body ? JSON.stringify(body) : undefined
+    });
+    return { status: res.status, data: await res.json().catch(() => ({})) };
+  } finally { clearTimeout(timer); }
+}
+
+/** Three-way merge of line lists. `base` = last version both sides agreed on. Nothing typed is ever dropped:
+ *  if the same line was edited differently on two devices, both versions are kept next to each other. */
+function merge3(base, local, remote) {
+  const B = new Map(base.map(l => [l.id, l]));
+  const R = new Set(remote.map(l => l.id));
+  const Lm = new Map(local.map(l => [l.id, l]));
+  const out = [], placed = new Set();
+  for (const r of remote) {
+    const b = B.get(r.id), l = Lm.get(r.id);
+    if (!l) {
+      if (b && same(b, r)) continue;           // deleted here, untouched there → stays deleted
+      out.push(r); placed.add(r.id); continue;   // new there (or edited there after we deleted it)
+    }
+    if (!b || same(l, b) || same(l, r)) out.push(r);   // only remote changed (or both agree)
+    else if (same(r, b)) out.push(l);                  // only local changed
+    else if (l.text !== r.text && l.text !== b.text && r.text !== b.text) {
+      out.push(r); out.push(Object.assign({}, l, { id: uid() }));   // text edited differently on both: keep both
+    } else {                                           // otherwise combine field by field
+      const merged = Object.assign({}, r);
+      for (const k of Object.keys(l)) if (!same(l[k], b[k])) merged[k] = l[k];
+      out.push(merged);
+    }
+    placed.add(r.id);
+  }
+  local.forEach((l, i) => {
+    if (placed.has(l.id) || R.has(l.id)) return;
+    const b = B.get(l.id);
+    if (b && same(b, l)) return;                 // deleted there, untouched here → delete
+    let at = 0;                                  // new here: keep it right after the line it followed
+    for (let j = i - 1; j >= 0; j--) {
+      const k = out.findIndex(x => x.id === local[j].id);
+      if (k >= 0) { at = k + 1; break; }
+    }
+    out.splice(at, 0, l);
+    placed.add(l.id);
+  });
+  return out;
+}
+window.DumpDebug = { merge3 };
+
+function applyLines(next, label) {
+  if (same(next, S.lines)) return;
+  S.lines = next.length ? clone(next) : [L('')];
+  render();
+  for (const row of rows.values()) row._needsFit = true;
+  if (!S.selMode) fitAll();
+  saveNow();
+  commitHistory(label);
+}
+
+function setSync(state) {
+  S.syncState = state;
+  const b = $('#syncbtn');
+  b.dataset.state = state;
+  b.innerHTML = icon({ off: 'cloud-off', ok: 'cloud-ok', busy: 'cloud-busy', offline: 'cloud-offline', error: 'cloud-error' }[state]);
+  b.title = syncLabel().title;
+  if ($('#syncdlg').classList.contains('show')) renderSyncSheet();
+}
+function syncLabel() {
+  const ago = SY && SY.last ? 'Last synced ' + fmt(SY.last) : 'Not synced yet';
+  switch (S.syncState) {
+    case 'ok': return { title: 'Synced', sub: ago };
+    case 'busy': return { title: 'Syncing…', sub: ago };
+    case 'offline': return { title: 'Offline — your edits are saved here', sub: 'They will sync when you’re back online. ' + ago };
+    case 'error': return { title: 'Sync problem', sub: (SY && SY.err ? SY.err + '. ' : '') + ago };
+    default: return { title: 'Sync is off', sub: 'Notes are only on this device.' };
+  }
+}
+
+function scheduleSync(delay) {
+  if (!SY) return;
+  clearTimeout(syncT);
+  syncT = setTimeout(syncNow, delay);
+}
+
+async function syncNow() {
+  clearTimeout(syncT);
+  if (!SY || !SY.id) { setSync('off'); return; }
+  if (!navigator.onLine) { setSync('offline'); return; }
+  if (!cryptoOK()) { SY.err = 'Sync needs the https:// address of the app'; setSync('error'); return; }
+  if (syncing) { syncAgain = true; return; }
+  syncing = true;
+  setSync('busy');
+  try {
+    flush();
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const g = await api('GET');
+      let remote = null;
+      if (g.status === 200) remote = (await unseal(g.data.data)).lines;
+      else if (g.status === 404) SY.rev = 0;
+      else throw new Error(g.data.error || 'Server error ' + g.status);
+
+      if (remote && g.data.rev !== SY.rev) {
+        const localChanged = !same(S.lines, SY.base || []);
+        const next = localChanged ? merge3(SY.base || [], S.lines, remote) : remote;
+        applyLines(next, localChanged ? 'Merged with other device' : 'Synced from other device');
+        SY.rev = g.data.rev;
+        SY.base = clone(remote);
+        saveSY();
+      }
+      if (remote && same(S.lines, SY.base)) break;    // already up to date
+
+      const snapshot = clone(S.lines);
+      const p = await api('PUT', { baseRev: SY.rev, data: await seal({ lines: snapshot, modified: Date.now() }) });
+      if (p.status === 200) { SY.rev = p.data.rev; SY.base = snapshot; saveSY(); break; }
+      if (p.status !== 409) throw new Error(p.data.error || 'Server error ' + p.status);
+      // 409: someone else saved first — loop: pull, merge, push again
+    }
+    SY.last = Date.now();
+    SY.err = null;
+    saveSY();
+    setSync('ok');
+  } catch (e) {
+    if (SY) { SY.err = e.name === 'AbortError' ? 'Timed out' : (e.message || String(e)); saveSY(); }
+    setSync(navigator.onLine ? 'error' : 'offline');
+  } finally {
+    syncing = false;
+    if (syncAgain) { syncAgain = false; scheduleSync(300); }
+  }
+}
+
+function isPristine() {
+  const mine = S.lines.map(exportLine).filter(t => t.trim()).join('\n');
+  const fresh = starter().map(exportLine).filter(t => t.trim()).join('\n');
+  return !mine || mine === fresh;
+}
+
+async function connectSync(url, pass) {
+  url = url.trim().replace(/\/+$/, '');
+  if (!/^https:\/\//i.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)/i.test(url)) throw new Error('The sync address should start with https://');
+  if (pass.length < 8) throw new Error('Use a passphrase of at least 8 characters (4 random words is great)');
+  if (!cryptoOK()) throw new Error('Open the app from its https:// address to use sync');
+  let health;
+  try { health = await (await fetch(url + '/', { cache: 'no-store' })).json(); } catch { health = null; }
+  if (!health || health.app !== 'dump-sync') throw new Error('No Dump sync server at that address. Check the URL.');
+  const secrets = await deriveSecrets(pass);
+  const cfg = { url, id: secrets.id, key: secrets.key, rev: 0, base: null, last: 0, err: null };
+  const prev = SY, prevKey = syncKey;
+  SY = cfg; syncKey = null;
+  let g;
+  try { g = await api('GET'); }
+  catch (e) { SY = prev; syncKey = prevKey; throw new Error('Could not reach the sync server'); }
+  if (g.status === 200) {
+    let remote;
+    try { remote = (await unseal(g.data.data)).lines; }
+    catch { SY = prev; syncKey = prevKey; throw new Error('Could not unlock the synced notes'); }
+    if (isPristine()) {
+      applyLines(remote, 'Synced from other device');
+      Object.assign(SY, { rev: g.data.rev, base: clone(remote), last: Date.now() });
+      saveSY(); setSync('ok');
+      return 'connected';
+    }
+    pending = { cfg, remote, rev: g.data.rev };
+    SY = prev; syncKey = prevKey;
+    return 'choose';
+  }
+  if (g.status !== 404) { SY = prev; syncKey = prevKey; throw new Error(g.data.error || 'Server error ' + g.status); }
+  saveSY();
+  await syncNow();
+  return 'connected';
+}
+
+function resolvePending(mode) {
+  if (!pending) return;
+  SY = pending.cfg; syncKey = null;
+  const next = mode === 'merge' ? merge3([], S.lines, pending.remote) : pending.remote;
+  applyLines(next, mode === 'merge' ? 'Merged with synced notes' : 'Replaced with synced notes');
+  SY.rev = pending.rev;
+  SY.base = clone(pending.remote);
+  pending = null;
+  saveSY();
+  syncNow();
+}
+
+function disconnectSync() {
+  SY = null; syncKey = null; pending = null;
+  try { localStorage.removeItem(SKEY); } catch {}
+  setSync('off');
+}
+
+/* ---------- Sync sheet ---------- */
+function renderSyncSheet(msg) {
+  const st = syncLabel();
+  let h = `<div class="sstatus" data-state="${S.syncState}"><span class="dot"></span><span><b>${esc(st.title)}</b><small>${esc(st.sub)}</small></span></div>`;
+  if (pending) {
+    h += '<p class="note" style="font-size:14px;color:var(--fg)">This sync space already has notes, and this device has its own. What should happen?</p>' +
+      '<div class="sbtns"><button class="primary" id="pmerge">Merge both</button><button id="pcloud">Use synced notes</button></div>' +
+      '<div class="sbtns"><button id="pcancel">Cancel</button></div>' +
+      '<p class="note">“Use synced notes” replaces what’s on this device, but the current version stays in Edit History.</p>';
+  } else if (SY) {
+    h += `<p class="note">Server: ${esc(SY.url.replace(/^https?:\/\//, ''))}</p>` +
+      '<div class="sbtns"><button class="primary" id="snow">Sync now</button><button class="danger" id="soff">Turn off</button></div>' +
+      '<p class="note">To add another phone or laptop, open Dump there, tap the cloud and enter the same server address and passphrase. Turning sync off keeps your notes on this device.</p>';
+  } else {
+    h += (msg ? `<p class="note" style="color:var(--danger);font-size:13px">${esc(msg)}</p>` : '') +
+      '<label class="field"><span>Sync server address</span><input id="surl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://dump-sync.yourname.workers.dev"></label>' +
+      '<label class="field"><span>Passphrase (same on every device)</span><input id="spass" type="password" autocomplete="new-password" placeholder="e.g. four random words you’ll remember"></label>' +
+      '<div class="sbtns"><button class="primary" id="sgo">Connect</button></div>' +
+      '<p class="note">Your notes are encrypted on this device with your passphrase before they leave it. The server only stores scrambled data. If you forget the passphrase, synced copies can’t be unlocked, but each device still has its own notes.</p>' +
+      '<details class="help"><summary>How do I get a sync server? (free, ~5 min)</summary><ol>' +
+      '<li>Sign up at <b>dash.cloudflare.com</b> (free).</li>' +
+      '<li><b>Storage &amp; Databases → KV → Create</b>, name it <code>dump</code>.</li>' +
+      '<li><b>Workers &amp; Pages → Create → Worker</b>, name it <code>dump-sync</code>, Deploy.</li>' +
+      '<li><b>Edit code</b>, replace everything with the contents of <code>sync-worker/worker.js</code>, Deploy.</li>' +
+      '<li>In the worker: <b>Settings → Bindings → Add → KV namespace</b>. Variable name <code>DUMP</code>, namespace <code>dump</code>. Deploy.</li>' +
+      '<li>Copy the worker address (…<code>.workers.dev</code>) and paste it above.</li></ol></details>';
+  }
+  h += '<details class="help"><summary>Keyboard shortcuts (laptop)</summary><div class="kbd-list">' +
+    '<kbd>⌘/Ctrl B</kbd> bold · <kbd>⌘/Ctrl ⇧ ↑/↓</kbd> move line · <kbd>⌘/Ctrl ⇧ L</kbd> select line<br>' +
+    '<kbd>⌘/Ctrl Enter</kbd> tick / untick · <kbd>⌘/Ctrl ⇧ -</kbd> line break · <kbd>⌘/Ctrl ⇧ H</kbd> history<br>' +
+    'Select mode: <kbd>← →</kbd> move · <kbd>⇧ ← →</kbd> select · <kbd>↑ ↓</kbd> lines · <kbd>⌘/Ctrl C</kbd> copy · <kbd>⌫</kbd> delete · <kbd>⌘/Ctrl A</kbd> all · <kbd>Esc</kbd> done<br>' +
+    'Shift-click line numbers to select a range.</div></details>';
+  $('#syncbody').innerHTML = h;
+}
+function openSync() {
+  blurAll();
+  $('#syncdlg').classList.add('show');
+  renderSyncSheet();
+  if (SY && navigator.onLine) syncNow();
+}
+const closeSync = () => $('#syncdlg').classList.remove('show');
+$('#syncbtn').addEventListener('click', openSync);
+$('#syncdone').addEventListener('click', closeSync);
+$('#syncdlg').addEventListener('click', e => { if (e.target.id === 'syncdlg') closeSync(); });
+$('#syncbody').addEventListener('click', async e => {
+  const id = e.target.id;
+  if (id === 'snow') syncNow();
+  if (id === 'soff') { disconnectSync(); toast('Sync turned off'); }
+  if (id === 'pmerge' || id === 'pcloud') { resolvePending(id === 'pmerge' ? 'merge' : 'cloud'); renderSyncSheet(); }
+  if (id === 'pcancel') { pending = null; renderSyncSheet(); }
+  if (id === 'sgo') {
+    const btn = e.target, url = $('#surl').value, pass = $('#spass').value;
+    btn.disabled = true; btn.textContent = 'Connecting…';
+    try {
+      const r = await connectSync(url, pass);
+      renderSyncSheet();
+      if (r === 'connected') toast('Sync is on');
+    } catch (err) {
+      renderSyncSheet(err.message || String(err));
+      $('#surl').value = url;
+    }
+  }
+});
+$('#syncbody').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'spass') $('#sgo').click(); });
+
+window.addEventListener('online', () => syncNow());
+window.addEventListener('offline', () => { if (SY) setSync('offline'); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && SY) syncNow(); else if (document.hidden && SY) syncNow(); });
+setInterval(() => { if (SY && !document.hidden && !syncing) syncNow(); }, 30000);
+
+/* ================= Keyboard shortcuts (laptop) ================= */
+document.addEventListener('keydown', e => {
+  const mod = e.metaKey || e.ctrlKey;
+  const inText = e.target.classList && e.target.classList.contains('tx');
+  const inOther = !inText && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+  if (inOther) return;
+  if (e.key === 'Escape') {
+    if ($('#syncdlg').classList.contains('show')) return closeSync();
+    if ($('#hist').classList.contains('show')) return closeHistory();
+    if (S.pmOpen) { S.pmOpen = false; return renderChrome(); }
+    if (S.selMode) return exitSelection();
+    if (inText) return blurAll();
+    return;
+  }
+  if (mod && !e.shiftKey && e.key.toLowerCase() === 'b') { e.preventDefault(); toggleBold(); return; }
+  if (mod && e.shiftKey && e.key.toLowerCase() === 'h') { e.preventDefault(); openHistory(); return; }
+  if (mod && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    const pos = inText ? e.target.selectionStart : 0;
+    const id = inText ? e.target.parentNode.dataset.id : null;
+    move(e.key === 'ArrowUp');
+    if (id) focusLine(id, pos);
+    return;
+  }
+  if (mod && e.shiftKey && (e.key === '-' || e.key === '_')) { e.preventDefault(); insertDivider(); return; }
+  if (mod && e.shiftKey && e.key.toLowerCase() === 'l') {
+    e.preventDefault();
+    const t = targets(); if (t.length && !S.selMode) enterSelection([t[0]], false);
+    return;
+  }
+  if (mod && e.key === 'Enter' && inText) {
+    e.preventDefault(); e.stopPropagation();
+    const id = e.target.parentNode.dataset.id, l = line(id), pos = e.target.selectionStart;
+    if (l && l.kind === 'check') { l.checked = !l.checked; changed(true); focusLine(id, pos); }
+    return;
+  }
+  if (!S.selMode || inText) return;
+  // Select mode on a laptop
+  const k = e.key;
+  if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown') {
+    e.preventDefault();
+    if (e.shiftKey && !S.anchor) S.anchor = caret();
+    const c = k === 'ArrowLeft' ? -1 : k === 'ArrowRight' ? 1 : 0;
+    const r = k === 'ArrowUp' ? -1 : k === 'ArrowDown' ? 1 : 0;
+    moveCaret(c, r, e.shiftKey);
+    return;
+  }
+  if (mod && k.toLowerCase() === 'c') { e.preventDefault(); copyTargets(); return; }
+  if (mod && k.toLowerCase() === 'a') { e.preventDefault(); S.sel = new Set(S.lines.map(l => l.id)); S.anchor = null; render(); return; }
+  if (k === 'Backspace' || k === 'Delete') { e.preventDefault(); deleteTargets(); return; }
+  if (k === 'Enter') { e.preventDefault(); exitSelection(true); }
+}, true);
+
+/* ================= Keyboard-aware positioning (Safari) ================= */
+function layoutVV() {
+  const vv = window.visualViewport; if (!vv) return;
+  const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  const root = document.documentElement.style;
+  root.setProperty('--kb', kb + 'px');
+  root.setProperty('--vvtop', Math.max(0, Math.round(vv.offsetTop)) + 'px');
+  document.body.classList.toggle('kb', kb > 80);
+}
+if (window.visualViewport) {
+  visualViewport.addEventListener('resize', layoutVV);
+  visualViewport.addEventListener('scroll', layoutVV);
+}
+let lastW = innerWidth;
+window.addEventListener('resize', () => { layoutVV(); if (innerWidth !== lastW) { lastW = innerWidth; fitAll(); } });
+
+/* ================= Start ================= */
+render();
+fitAll();
+layoutVV();
+if (!S.history.length) commitHistory('Created');
+if (!saved) saveNow();
+if (SY) { setSync(navigator.onLine ? 'busy' : 'offline'); syncNow(); } else setSync('off');
+
+/* ================= Offline (needs https, e.g. Netlify) ================= */
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+})();
+</script>
+</body>
+</html>

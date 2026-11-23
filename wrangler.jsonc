@@ -1,0 +1,10 @@
+// Cloudflare config for hosting the Dump web app from this repo (Workers static assets).
+// Cloudflare's GitHub integration runs `npx wrangler deploy`, which serves everything in ./web.
+// The encrypted sync server is a separate Worker: see sync-worker/ and DEPLOY.md.
+{
+  "name": "notes",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./web"
+  }
+}

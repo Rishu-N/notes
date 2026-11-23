@@ -1,0 +1,12 @@
+.DS_Store
+scripts/logs/*
+!scripts/logs/.gitignore
+*.zip
+node_modules/
+.wrangler/
+# Native iOS project lives alongside but isn't part of the web deploy
+Dump/
+DumpWidget/
+Shared/
+Dump.xcodeproj/
+project.yml

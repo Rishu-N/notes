@@ -1,0 +1,10 @@
+# Cloudflare Worker config for the Dump sync server.
+# scripts/setup-sync.sh creates the KV namespace and replaces the placeholder id below.
+name = "dump-sync"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "DUMP"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
